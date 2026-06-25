@@ -1,0 +1,7 @@
+
+## Acesso API OLIST:
+Nome do Aplicativo: Albertina
+URL de Redirecionamento: http://localhost:3500/olist/callback
+Chaves de acesso: 
+	Client ID: tiny-api-5a6c6021a81d09b280ca8f1f4e685b6107fc4d3e-1776458496
+	Client Secrect: 59BkhupEaINVjb1SJAZUMreyIcJ7Y588
