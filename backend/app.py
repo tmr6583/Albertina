@@ -20,6 +20,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
+from olist_extraction.service import extraction_service
+
 try:
     import psycopg
     from psycopg.rows import dict_row
@@ -429,6 +431,55 @@ def format_connection_log(row: RowData) -> dict[str, Any]:
         "time": normalize_timestamp(row_value(row, "created_at")),
         "tone": row_value(row, "tone"),
         "status": row_value(row, "status"),
+    }
+
+
+def format_extraction_execution_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    runs = payload.get("runs") or []
+    logs = payload.get("logs") or []
+    return {
+        "executionId": str(payload.get("execution_id")),
+        "startedAt": normalize_timestamp(payload.get("started_at"), fallback="Nao iniciado"),
+        "finishedAt": normalize_timestamp(payload.get("finished_at"), fallback="Em andamento"),
+        "requestCount": int(payload.get("request_count") or 0),
+        "successCount": int(payload.get("success_count") or 0),
+        "errorCount": int(payload.get("error_count") or 0),
+        "entityTotal": int(payload.get("entity_total") or 0),
+        "entitiesSuccess": int(payload.get("entities_success") or 0),
+        "entitiesCancelled": int(payload.get("entities_cancelled") or 0),
+        "entitiesError": int(payload.get("entities_error") or 0),
+        "entitiesRunning": int(payload.get("entities_running") or 0),
+        "runs": [
+            {
+                "syncRunId": str(item.get("sync_run_id")),
+                "entityName": item.get("entity_name"),
+                "status": item.get("status"),
+                "syncMode": item.get("sync_mode"),
+                "startedAt": normalize_timestamp(item.get("started_at"), fallback="Nao iniciado"),
+                "finishedAt": normalize_timestamp(item.get("finished_at"), fallback="Em andamento"),
+                "requestCount": int(item.get("request_count") or 0),
+                "successCount": int(item.get("success_count") or 0),
+                "errorCount": int(item.get("error_count") or 0),
+                "details": item.get("details") or {},
+            }
+            for item in runs
+        ],
+        "logs": [
+            {
+                "id": str(item.get("log_id")),
+                "entityName": item.get("entity_name"),
+                "level": item.get("level"),
+                "stage": item.get("stage"),
+                "message": item.get("message"),
+                "createdAt": normalize_timestamp(item.get("created_at"), fallback="Nao informado"),
+                "extractedCount": int(item.get("extracted_count") or 0),
+                "insertedCount": int(item.get("inserted_count") or 0),
+                "updatedCount": int(item.get("updated_count") or 0),
+                "errorCount": int(item.get("error_count") or 0),
+                "stackTrace": item.get("stack_trace"),
+            }
+            for item in logs
+        ],
     }
 
 
@@ -1914,3 +1965,94 @@ def test_olist_api(current_user: RowData = Depends(get_current_user)) -> dict[st
         "summary": summary,
         "olist": build_olist_settings_payload(updated),
     }
+
+
+@app.get("/api/extraction/overview")
+def extraction_overview(current_user: RowData = Depends(get_current_user)) -> dict[str, Any]:
+    try:
+        payload = extraction_service.get_overview(str(row_value(current_user, "id")))
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+    recent_executions = [
+        {
+            "executionId": str(item.get("execution_id")),
+            "startedAt": normalize_timestamp(item.get("started_at"), fallback="Nao iniciado"),
+            "finishedAt": normalize_timestamp(item.get("finished_at"), fallback="Em andamento"),
+            "entityTotal": int(item.get("entity_total") or 0),
+            "entitiesSuccess": int(item.get("entities_success") or 0),
+            "entitiesCancelled": int(item.get("entities_cancelled") or 0),
+            "entitiesError": int(item.get("entities_error") or 0),
+            "requestCount": int(item.get("request_count") or 0),
+            "successCount": int(item.get("success_count") or 0),
+            "errorCount": int(item.get("error_count") or 0),
+        }
+        for item in payload.get("recentExecutions", [])
+    ]
+
+    active_execution = payload.get("activeExecution")
+    return {
+        "running": bool(payload.get("running")),
+        "stopRequested": bool(payload.get("stopRequested")),
+        "activeExecutionId": payload.get("activeExecutionId"),
+        "tenantId": payload.get("tenantId"),
+        "supportedEntities": payload.get("supportedEntities", []),
+        "olist": payload.get("olist", {}),
+        "recentExecutions": recent_executions,
+        "activeExecution": (
+            format_extraction_execution_payload(active_execution)
+            if isinstance(active_execution, Mapping)
+            else None
+        ),
+    }
+
+
+@app.post("/api/extraction/run")
+def start_extraction(current_user: RowData = Depends(get_current_user)) -> dict[str, Any]:
+    actor_email = str(row_value(current_user, "email"))
+    actor_id = str(row_value(current_user, "id"))
+    try:
+        response = extraction_service.start_full_sync(user_id=actor_id, actor_email=actor_email)
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+    if response.get("status") == "started":
+        with get_db() as db:
+            append_audit(
+                db=db,
+                title="Execucao de extracao solicitada",
+                description=f"O usuario {actor_email} solicitou a sincronizacao completa da API Olist.",
+                tone="accent",
+            )
+    return response
+
+
+@app.post("/api/extraction/stop")
+def stop_extraction(current_user: RowData = Depends(get_current_user)) -> dict[str, Any]:
+    actor_email = str(row_value(current_user, "email"))
+    response = extraction_service.request_stop(actor_email=actor_email)
+    if response.get("status") == "stopping":
+        with get_db() as db:
+            append_audit(
+                db=db,
+                title="Parada da extracao solicitada",
+                description=f"O usuario {actor_email} solicitou a interrupcao da sincronizacao Olist em andamento.",
+                tone="warning",
+            )
+    return response
+
+
+@app.get("/api/extraction/executions/{execution_id}")
+def extraction_execution(
+    execution_id: str,
+    current_user: RowData = Depends(get_current_user),
+) -> dict[str, Any]:
+    del current_user
+    try:
+        payload = extraction_service.get_execution(execution_id)
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Execucao de extracao nao encontrada.")
+    return format_extraction_execution_payload(payload)

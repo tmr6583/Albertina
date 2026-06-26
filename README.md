@@ -11,6 +11,8 @@ Estado atual da aplicação:
 - sessões via token Bearer
 - auditoria operacional persistida
 - tela `Conexões` com operação real da Olist
+- menu `Extração` com disparo da sincronização ERP Olist -> Supabase
+- acompanhamento operacional da extração com entidade atual, logs e parada segura
 - OAuth real da Olist já implementado
 - persistência validada em `PostgreSQL / Supabase`
 - fallback local em `SQLite`
@@ -41,6 +43,7 @@ Recursos já disponíveis no repositório:
 - renovação real de token via `refresh_token`
 - persistência de tokens, expiração, `state` e logs da conexão Olist
 - cliente HTTP real inicial para validar a API da Olist
+- orquestração de extração completa com logs, controle incremental e persistência raw no Supabase
 
 Pendências atuais de evolução:
 
@@ -59,9 +62,10 @@ Fluxo atual da aplicação:
 2. A tela de login envia credenciais para `POST /api/auth/login`.
 3. O backend valida o usuário, cria a sessão e retorna um token Bearer.
 4. O frontend armazena o token em `localStorage`.
-5. As páginas autenticadas consomem `users`, `audit` e `connections/overview`.
+5. As páginas autenticadas consomem `users`, `connections/overview`, `extraction/overview` e trilhas operacionais quando necessário.
 6. A tela `Conexões` opera o fluxo OAuth da Olist e registra os eventos no banco.
 7. A API pode validar a integração real por `GET /api/connections/olist/api-test`.
+8. A tela `Extração` dispara a sincronização completa, acompanha o status por polling na API e permite parada segura.
 
 Componentes principais:
 
@@ -139,7 +143,7 @@ Rotas do frontend:
 - `/`: login
 - `/usuarios`: administração de usuários
 - `/conexoes`: operação e monitoramento das conexões
-- `/auditoria`: linha do tempo de auditoria
+- `/extracao`: execução e acompanhamento da extração Olist
 - `/olist/callback`: rota legada do retorno OAuth no frontend
 
 Características visuais e comportamentais:
@@ -149,6 +153,7 @@ Características visuais e comportamentais:
 - fonte base `Arial`
 - fundo branco com cards azuis
 - menu principal no topo
+- menu principal com atalhos para Usuários, Conexões e Extração
 - botão global `Sair` no cabeçalho autenticado
 - datas exibidas em `DD/MM/YYYY HH:MM:SS`
 - modais para criação de usuário e troca de senha
@@ -430,7 +435,7 @@ Exemplo de mudança de status:
 ### Auditoria
 
 - `GET /api/audit`
-  - retorna até `50` eventos mais recentes
+  - endpoint operacional ainda usado para trilhas resumidas na interface administrativa
 
 ### Conexões
 
@@ -440,6 +445,10 @@ Exemplo de mudança de status:
 - `POST /api/connections/olist/callback`
 - `POST /api/connections/olist/renew-token`
 - `GET /api/connections/olist/api-test`
+- `GET /api/extraction/overview`
+- `POST /api/extraction/run`
+- `POST /api/extraction/stop`
+- `GET /api/extraction/executions/{execution_id}`
 
 Rotas legadas preservadas:
 
@@ -497,10 +506,19 @@ Situação atual da integração:
 - renovação real com `refresh_token`
 - persistência de tokens e logs no banco
 - validação real da API por recurso documentado
+- extração raw com paginação, retry, controle incremental e persistência operacional no Supabase
+- garantia de uma única execução concorrente com trava global no PostgreSQL
+- parada segura com redução de latência para entidades pesadas como `contacts`
 
 Recurso atualmente usado para validação:
 
 - `GET https://api.tiny.com.br/public-api/v3/categorias/todas`
+
+## Documentação De Fluxo De Dados
+
+- documento visual amplo da extração: `docs/olist_extraction_data_flow.html`
+- matriz consolidada de campos: `docs/olist_mapping_matrix_consolidated.md`
+- guia técnico de mapeamento: `docs/olist_mapping_guide.md`
 
 ## Erros Mais Relevantes
 

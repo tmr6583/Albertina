@@ -7,12 +7,13 @@ const ROUTES = {
   login: '/',
   users: '/usuarios',
   connections: '/conexoes',
-  audit: '/auditoria',
+  extraction: '/extracao',
 }
 
 const LEGACY_ROUTES = {
   olist: '/olist',
   olistCallback: '/olist/callback',
+  audit: '/auditoria',
 }
 
 const NAV_ITEMS = [
@@ -29,9 +30,9 @@ const NAV_ITEMS = [
     className: 'nav-olist',
   },
   {
-    key: 'audit',
-    label: 'Auditoria',
-    path: ROUTES.audit,
+    key: 'extraction',
+    label: 'Extração',
+    path: ROUTES.extraction,
     className: 'nav-audit',
   },
 ]
@@ -46,8 +47,8 @@ function getPageFromPath(pathname) {
     return 'connections'
   }
 
-  if (pathname === ROUTES.audit) {
-    return 'audit'
+  if (pathname === ROUTES.extraction) {
+    return 'extraction'
   }
 
   if (pathname === ROUTES.users) {
@@ -111,6 +112,34 @@ function getConnectionStatusClass(status) {
 
 function toneFromAudit(item) {
   return ['accent', 'success', 'danger'].includes(item.tone) ? item.tone : 'neutral'
+}
+
+
+function toneFromExtractionStatus(status) {
+  if (status === 'error') {
+    return 'danger'
+  }
+  if (status === 'cancelled') {
+    return 'warning'
+  }
+  if (status === 'running') {
+    return 'accent'
+  }
+  return 'success'
+}
+
+
+function labelFromExtractionStatus(status) {
+  if (status === 'error') {
+    return 'Com erro'
+  }
+  if (status === 'cancelled') {
+    return 'Interrompida'
+  }
+  if (status === 'running') {
+    return 'Em andamento'
+  }
+  return 'Concluída'
 }
 
 function emptyPageFeedback() {
@@ -494,6 +523,267 @@ function ConnectionsPage({
 }
 
 
+function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshExecution }) {
+  const activeExecution = overview?.activeExecution
+  const executionRuns = activeExecution?.runs ?? []
+  const recentExecutions = overview?.recentExecutions ?? []
+  const recentLogs = activeExecution?.logs ?? []
+  const supportedEntities = overview?.supportedEntities ?? []
+  const isRunning = Boolean(overview?.running)
+  const isStopping = Boolean(overview?.stopRequested)
+  const runningRun = executionRuns.find((item) => item.status === 'running') ?? null
+  const latestRun = executionRuns.at(-1) ?? null
+  const currentRun = runningRun ?? latestRun
+  const latestLog = recentLogs.at(-1) ?? null
+  const processedEntities = executionRuns.filter((item) => item.status !== 'running').length
+  const remainingEntities = Math.max(supportedEntities.length - executionRuns.length, 0)
+
+  const cards = [
+    {
+      label: 'Entidades',
+      value: String(supportedEntities.length).padStart(2, '0'),
+      helper: 'Cobertura publica configurada',
+    },
+    {
+      label: 'Execução ativa',
+      value: isRunning ? 'Sim' : 'Nao',
+      helper: isStopping
+        ? 'Parada solicitada, aguardando encerramento seguro'
+        : isRunning
+          ? 'Sincronizacao em andamento'
+          : 'Nenhuma rotina ativa agora',
+    },
+    {
+      label: 'Andamento',
+      value: `${processedEntities}/${supportedEntities.length || 0}`,
+      helper: currentRun
+        ? `${currentRun.entityName} • ${labelFromExtractionStatus(currentRun.status)}`
+        : 'Aguardando primeira execução',
+    },
+    {
+      label: 'Último evento',
+      value: latestLog ? latestLog.stage : '--',
+      helper: latestLog ? `${latestLog.entityName} em ${formatDateTime(latestLog.createdAt)}` : 'Sem eventos recentes',
+    },
+  ]
+
+  return (
+    <section className="page-stack extraction-page">
+      <section className="panel panel-glow">
+        <div className="panel-header">
+          <div>
+            <span className="eyebrow">Extração</span>
+            <h2>Sincronização ERP Olist {'->'} Supabase</h2>
+          </div>
+          <div className="toolbar extraction-actions">
+            <button type="button" className="ghost-button" onClick={onRefreshExecution} disabled={isSubmitting}>
+              Atualizar
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={onToggleExtraction}
+              disabled={isSubmitting}
+            >
+              {isStopping ? 'Parando extração...' : isRunning ? 'Parar extração' : 'Iniciar extração'}
+            </button>
+          </div>
+        </div>
+
+        <div className="stats-row stats-row-compact">
+          {cards.map((card) => (
+            <StatCard key={card.label} {...card} />
+          ))}
+        </div>
+      </section>
+
+      <section className="page-grid extraction-grid">
+        <article className="panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Execução ativa</span>
+            </div>
+          </div>
+          {activeExecution ? (
+            <div className="key-value-list">
+              <div className="key-value-row">
+                <span>Execução</span>
+                <strong>{activeExecution.executionId}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Início</span>
+                <strong>{formatDateTime(activeExecution.startedAt)}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Fim</span>
+                <strong>{formatDateTime(activeExecution.finishedAt)}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Entidades com sucesso</span>
+                <strong>{activeExecution.entitiesSuccess ?? 0}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Entidades com erro</span>
+                <strong>{activeExecution.entitiesError ?? 0}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Entidades interrompidas</span>
+                <strong>{activeExecution.entitiesCancelled ?? 0}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Requisições</span>
+                <strong>{activeExecution.requestCount ?? 0}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Persistências</span>
+                <strong>{activeExecution.successCount ?? 0}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Erros</span>
+                <strong>{activeExecution.errorCount ?? 0}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Entidade atual</span>
+                <strong>{currentRun?.entityName ?? 'Aguardando'}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Status atual</span>
+                <strong>{currentRun ? labelFromExtractionStatus(currentRun.status) : 'Sem execução ativa'}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Restantes</span>
+                <strong>{remainingEntities}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Último log</span>
+                <strong>{latestLog ? `${latestLog.entityName} / ${latestLog.stage}` : 'Sem eventos'}</strong>
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <strong>Nenhuma execução selecionada</strong>
+              <p>Inicie a rotina ou consulte o histórico recente abaixo.</p>
+            </div>
+          )}
+        </article>
+
+        <article className="panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Andamento por entidade</span>
+            </div>
+          </div>
+          {executionRuns.length > 0 ? (
+            <ul className="activity-list audit-list">
+              {executionRuns.map((item) => (
+                <ActivityItem
+                  key={item.syncRunId}
+                  item={{
+                    id: item.syncRunId,
+                    title: `${item.entityName} • ${labelFromExtractionStatus(item.status)}`,
+                    description: `Modo: ${item.syncMode} | requisições: ${item.requestCount ?? 0} | persistências: ${item.successCount ?? 0} | erros: ${item.errorCount ?? 0}`,
+                    time: formatDateTime(item.finishedAt ?? item.startedAt),
+                    tone: toneFromExtractionStatus(item.status),
+                  }}
+                />
+              ))}
+            </ul>
+          ) : (
+            <div className="empty-state">
+              <strong>Nenhuma entidade em execução</strong>
+              <p>O andamento detalhado aparecerá aqui assim que a extração começar.</p>
+            </div>
+          )}
+        </article>
+
+        <article className="panel extraction-log-panel">
+          <div className="panel-header compact extraction-log-header">
+            <div>
+              <span className="eyebrow">Logs</span>
+            </div>
+          </div>
+          {recentLogs.length > 0 ? (
+            <ul className="activity-list audit-list extraction-log-list">
+              {recentLogs.map((item) => (
+                <ActivityItem
+                  key={item.id}
+                  item={{
+                    id: item.id,
+                    title: `${item.entityName} / ${item.stage}`,
+                    description: item.message,
+                    time: formatDateTime(item.createdAt),
+                    tone: item.level === 'ERROR' ? 'danger' : 'success',
+                  }}
+                />
+              ))}
+            </ul>
+          ) : (
+            <div className="empty-state">
+              <strong>Nenhum log disponível</strong>
+              <p>Os eventos de execução serão exibidos assim que a extração começar.</p>
+            </div>
+          )}
+        </article>
+
+        <article className="panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Histórico</span>
+            </div>
+          </div>
+          {recentExecutions.length > 0 ? (
+            <ul className="activity-list audit-list">
+              {recentExecutions.map((item) => (
+                <ActivityItem
+                  key={item.executionId}
+                  item={{
+                    id: item.executionId,
+                    title: `Execução ${item.executionId.slice(0, 8)}`,
+                    description: `Entidades ok: ${item.entitiesSuccess ?? 0} | interrompidas: ${item.entitiesCancelled ?? 0} | erros: ${item.entitiesError ?? 0} | requisições: ${item.requestCount ?? 0}`,
+                    time: formatDateTime(item.startedAt),
+                    tone:
+                      (item.entitiesError ?? 0) > 0
+                        ? 'danger'
+                        : (item.entitiesCancelled ?? 0) > 0
+                          ? 'warning'
+                          : 'success',
+                  }}
+                />
+              ))}
+            </ul>
+          ) : (
+            <div className="empty-state">
+              <strong>Nenhuma execução registrada</strong>
+              <p>O histórico de sincronização aparecerá aqui após a primeira execução.</p>
+            </div>
+          )}
+        </article>
+
+        <article className="panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Cobertura</span>
+            </div>
+          </div>
+          {supportedEntities.length > 0 ? (
+            <div className="detail-list extraction-entity-list">
+              {supportedEntities.map((entityName) => (
+                <li key={entityName}>{entityName}</li>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <strong>Nenhuma entidade configurada</strong>
+              <p>Verifique a configuração da extração no backend.</p>
+            </div>
+          )}
+        </article>
+      </section>
+    </section>
+  )
+}
+
+
 function OlistCallbackPage({ phase, message }) {
   const title = phase === 'error' ? 'Falha na conexão Olist' : 'Concluindo conexão Olist'
   const detail =
@@ -527,69 +817,13 @@ function OlistCallbackPage({ phase, message }) {
 }
 
 
-function AuditPage({ activity }) {
-  const successCount = activity.filter((item) => item.tone === 'success').length
-  const dangerCount = activity.filter((item) => item.tone === 'danger').length
-
-  const cards = [
-    {
-      label: 'Eventos carregados',
-      value: String(activity.length).padStart(2, '0'),
-      helper: 'Últimos registros disponíveis',
-    },
-    {
-      label: 'Ações concluídas',
-      value: String(successCount).padStart(2, '0'),
-      helper: 'Eventos positivos recentes',
-    },
-    {
-      label: 'Alertas',
-      value: String(dangerCount).padStart(2, '0'),
-      helper: 'Itens que exigem atenção',
-    },
-  ]
-
-  return (
-    <section className="page-stack">
-      <section className="panel panel-glow audit-summary-panel">
-        <div className="panel-header">
-          <div>
-            <span className="eyebrow">Rastreabilidade</span>
-            <h2>Auditoria da aplicação</h2>
-          </div>
-        </div>
-
-        <div className="stats-row stats-row-compact">
-          {cards.map((card) => (
-            <StatCard key={card.label} {...card} />
-          ))}
-        </div>
-      </section>
-
-      <section className="panel audit-timeline-panel">
-        <div className="panel-header compact audit-timeline-header">
-          <div>
-            <span className="eyebrow">Linha do tempo</span>
-            <h2>Eventos recentes</h2>
-          </div>
-        </div>
-
-        <ul className="activity-list audit-list">
-          {activity.map((item) => (
-            <ActivityItem key={item.id} item={item} />
-          ))}
-        </ul>
-      </section>
-    </section>
-  )
-}
-
 function App() {
   const [activePage, setActivePage] = useState(() => getPageFromPath(window.location.pathname))
   const [currentUser, setCurrentUser] = useState(null)
   const [users, setUsers] = useState([])
   const [activity, setActivity] = useState([])
   const [connectionsOverview, setConnectionsOverview] = useState(null)
+  const [extractionOverview, setExtractionOverview] = useState(null)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -632,10 +866,11 @@ function App() {
   }, [])
 
   const hydrateAuthenticatedData = useCallback(async () => {
-    const [usersData, auditData, overviewData] = await Promise.all([
+    const [usersData, auditData, overviewData, extractionData] = await Promise.all([
       apiRequest('/users'),
       apiRequest('/audit'),
       apiRequest('/connections/overview'),
+      apiRequest('/extraction/overview'),
     ])
 
     setUsers(usersData)
@@ -647,6 +882,7 @@ function App() {
       })),
     )
     setConnectionsOverview(overviewData)
+    setExtractionOverview(extractionData)
     clearPageFeedback()
   }, [])
 
@@ -656,6 +892,11 @@ function App() {
 
   useEffect(() => {
     const handlePopState = () => {
+      if (window.location.pathname === LEGACY_ROUTES.audit) {
+        window.history.replaceState({}, '', ROUTES.extraction)
+        setActivePage('extraction')
+        return
+      }
       setActivePage(getPageFromPath(window.location.pathname))
     }
 
@@ -666,6 +907,9 @@ function App() {
   useEffect(() => {
     if (window.location.pathname === LEGACY_ROUTES.olist) {
       window.history.replaceState({}, '', ROUTES.connections)
+    }
+    if (window.location.pathname === LEGACY_ROUTES.audit) {
+      window.history.replaceState({}, '', ROUTES.extraction)
     }
   }, [])
 
@@ -684,6 +928,8 @@ function App() {
         setCurrentUser(user)
         if (window.location.pathname === ROUTES.login) {
           navigate(ROUTES.users, true)
+        } else if (window.location.pathname === LEGACY_ROUTES.audit) {
+          navigate(ROUTES.extraction, true)
         }
         await hydrateAuthenticatedData()
       } catch {
@@ -692,6 +938,7 @@ function App() {
         setUsers([])
         setActivity([])
         setConnectionsOverview(null)
+        setExtractionOverview(null)
         clearPageFeedback()
         navigate(ROUTES.login, true)
       } finally {
@@ -951,6 +1198,7 @@ function App() {
       setUsers([])
       setActivity([])
       setConnectionsOverview(null)
+      setExtractionOverview(null)
       clearPageFeedback()
       navigate(ROUTES.login, true)
     }
@@ -1056,6 +1304,97 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    if (!isAuthenticated || activePage !== 'extraction') {
+      return
+    }
+
+    if (!extractionOverview?.running && !extractionOverview?.activeExecutionId) {
+      return
+    }
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const overview = await apiRequest('/extraction/overview')
+        setExtractionOverview(overview)
+      } catch {
+        // Mantem a ultima visao renderizada enquanto a API nao responde.
+      }
+    }, extractionOverview?.stopRequested ? 2000 : 3000)
+
+    return () => window.clearInterval(intervalId)
+  }, [
+    activePage,
+    extractionOverview?.activeExecutionId,
+    extractionOverview?.running,
+    extractionOverview?.stopRequested,
+    isAuthenticated,
+  ])
+
+  async function handleRefreshExtraction() {
+    setIsSubmitting(true)
+    try {
+      const overview = await apiRequest('/extraction/overview')
+      setExtractionOverview(overview)
+      showPageFeedback('Status da extração atualizado.', 'success')
+    } catch (error) {
+      showPageFeedback(
+        error instanceof ApiError ? error.message : 'Não foi possível atualizar o status da extração.',
+        'danger',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleStartExtraction() {
+    setIsSubmitting(true)
+    try {
+      const response = await apiRequest('/extraction/run', { method: 'POST' })
+      const overview = await apiRequest('/extraction/overview')
+      setExtractionOverview(overview)
+      showPageFeedback(
+        response.detail ?? 'Extração iniciada com sucesso.',
+        response.status === 'started' ? 'success' : 'neutral',
+      )
+    } catch (error) {
+      showPageFeedback(
+        error instanceof ApiError ? error.message : 'Não foi possível iniciar a extração agora.',
+        'danger',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleStopExtraction() {
+    setIsSubmitting(true)
+    try {
+      const response = await apiRequest('/extraction/stop', { method: 'POST' })
+      const overview = await apiRequest('/extraction/overview')
+      setExtractionOverview(overview)
+      showPageFeedback(
+        response.detail ?? 'Parada da extração solicitada com sucesso.',
+        response.status === 'stopping' ? 'success' : 'neutral',
+      )
+    } catch (error) {
+      showPageFeedback(
+        error instanceof ApiError ? error.message : 'Não foi possível solicitar a parada da extração agora.',
+        'danger',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleToggleExtraction() {
+    if (extractionOverview?.running) {
+      await handleStopExtraction()
+      return
+    }
+    await handleStartExtraction()
+  }
+
   function renderAuthenticatedPage() {
     if (activePage === 'oauth-callback') {
       return (
@@ -1091,8 +1430,15 @@ function App() {
       )
     }
 
-    if (activePage === 'audit') {
-      return <AuditPage activity={activity} />
+    if (activePage === 'extraction') {
+      return (
+        <ExtractionPage
+          overview={extractionOverview}
+          isSubmitting={isSubmitting}
+          onToggleExtraction={handleToggleExtraction}
+          onRefreshExecution={handleRefreshExtraction}
+        />
+      )
     }
 
     return (

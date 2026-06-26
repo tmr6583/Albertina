@@ -37,3 +37,26 @@ INFO:     127.0.0.1:52691 - "POST /api/auth/login HTTP/1.1" 200 OK
 INFO:     127.0.0.1:52691 - "GET /api/users HTTP/1.1" 200 OK
 INFO:     127.0.0.1:55140 - "GET /api/audit HTTP/1.1" 200 OK
 INFO:     127.0.0.1:52609 - "GET /api/connections/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61304 - "OPTIONS /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61304 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61304 - "OPTIONS /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53657 - "OPTIONS /api/audit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61304 - "OPTIONS /api/connections/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61304 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53657 - "GET /api/audit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54556 - "GET /api/connections/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50278 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53000 - "OPTIONS /api/extraction/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53000 - "GET /api/extraction/overview HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50593 - "GET /api/audit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50278 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59718 - "GET /api/connections/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65486 - "OPTIONS /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65486 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65486 - "OPTIONS /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64565 - "OPTIONS /api/audit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65486 - "OPTIONS /api/connections/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64565 - "GET /api/extraction/overview HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:64565 - "GET /api/audit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65486 - "GET /api/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/connections/overview HTTP/1.1" 200 OK

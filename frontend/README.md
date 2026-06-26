@@ -11,8 +11,8 @@ O frontend implementa hoje:
 - restauração automática da sessão autenticada
 - tela de administração de usuários
 - modais de criação de usuário e troca de senha
-- tela de auditoria com linha do tempo
 - tela `Conexões` com operação real da Olist
+- tela `Extração` para disparo e acompanhamento da sincronização Olist -> Supabase
 - feedback visual padronizado de sucesso e erro
 - botão global `Sair` no cabeçalho autenticado
 
@@ -131,7 +131,7 @@ Rotas ativas:
 - `/`: login
 - `/usuarios`: administração de usuários
 - `/conexoes`: operação e monitoramento das conexões
-- `/auditoria`: auditoria da aplicação
+- `/extracao`: extração ERP e acompanhamento da execução
 - `/olist/callback`: rota legada do retorno OAuth
 
 Observações:
@@ -160,13 +160,6 @@ Observações:
 - ativação e desativação de conta
 - confirmação antes de ações destrutivas ou sensíveis
 
-### Auditoria
-
-- cartões resumo de eventos
-- linha do tempo dos eventos recentes
-- formatação de data e hora em `DD/MM/YYYY HH:MM:SS`
-- painel com cabeçalho refinado e rolagem interna
-
 ### Conexões
 
 - exibição do status real da conexão Olist
@@ -178,6 +171,15 @@ Observações:
 - renovação de token via backend
 - validação da API real da Olist
 - rastreabilidade dos eventos da conexão
+
+### Extração
+
+- disparo manual da sincronização completa da API pública Olist
+- acompanhamento da execução ativa com polling automático mais frequente durante parada
+- exibição da entidade atual, progresso por entidade, status e últimas execuções
+- consulta do detalhamento de execuções e logs operacionais
+- parada segura por botão `Parar extração`
+- formatação de data e hora em `DD/MM/YYYY HH:MM:SS`
 
 ## Estrutura Relevante
 
@@ -242,6 +244,10 @@ Endpoints consumidos atualmente:
 - `POST /api/connections/olist/callback`
 - `POST /api/connections/olist/renew-token`
 - `GET /api/connections/olist/api-test`
+- `GET /api/extraction/overview`
+- `POST /api/extraction/run`
+- `POST /api/extraction/stop`
+- `GET /api/extraction/executions/{execution_id}`
 
 Sem o backend disponível, a interface carrega, mas as operações autenticadas não funcionam.
 
@@ -251,6 +257,10 @@ Sem o backend disponível, a interface carrega, mas as operações autenticadas 
 - não usa gerenciamento de estado externo
 - não possui suíte própria de testes automatizados versionada
 - concentra boa parte da lógica em `App.jsx`
+
+## Documentação Relacionada
+
+- fluxo visual da extração: `docs/olist_extraction_data_flow.html`
 
 ## Próximos Passos Recomendados
 

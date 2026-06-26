@@ -738,6 +738,42 @@
   align-content: center;
 }
 
+.extraction-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.extraction-actions {
+  margin-bottom: 0;
+}
+
+.extraction-log-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.extraction-log-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: -18px -18px 0;
+  padding: 18px 18px 12px;
+  background:
+    linear-gradient(180deg, rgba(15, 78, 164, 0.98), rgba(15, 78, 164, 0.92)),
+    transparent;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(96, 187, 255, 0.14);
+}
+
+.extraction-log-list {
+  max-height: 58vh;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.extraction-entity-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .connections-actions {
   margin-bottom: 0;
 }
@@ -844,6 +880,14 @@
 
 .tone-danger {
   border-color: rgba(243, 213, 0, 0.22);
+}
+
+.tone-warning {
+  border-color: rgba(255, 205, 87, 0.28);
+}
+
+.tone-neutral {
+  border-color: rgba(96, 187, 255, 0.18);
 }
 
 
