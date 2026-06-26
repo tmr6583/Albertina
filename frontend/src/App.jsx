@@ -75,15 +75,14 @@ function formatDateTime(value) {
     return value
   }
 
-  return date.toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = String(date.getFullYear())
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
 }
 
 
@@ -201,6 +200,11 @@ function formatEtaLabel(value, fallback = 'Calculando') {
   return formatDuration(value)
 }
 
+function formatHighlightedErrorCount(value) {
+  const normalizedValue = Number(value) || 0
+  return normalizedValue > 0 ? `##!!## ${normalizedValue} ##!!##` : String(normalizedValue)
+}
+
 function buildExtractionExecutionLogText(payload) {
   const runs = payload?.runs ?? []
   const logs = payload?.logs ?? []
@@ -211,7 +215,7 @@ function buildExtractionExecutionLogText(payload) {
     `Fim: ${formatDateTime(payload?.finishedAt)}`,
     `Requisições: ${payload?.requestCount ?? 0}`,
     `Persistências: ${payload?.successCount ?? 0}`,
-    `Erros: ${payload?.errorCount ?? 0}`,
+    `Erros: ${formatHighlightedErrorCount(payload?.errorCount)}`,
     `Entidades previstas: ${payload?.entityTotal ?? 0}`,
     `Entidades com sucesso: ${payload?.entitiesSuccess ?? 0}`,
     `Entidades interrompidas: ${payload?.entitiesCancelled ?? 0}`,
@@ -233,7 +237,7 @@ function buildExtractionExecutionLogText(payload) {
         `   Fim: ${formatDateTime(item.finishedAt)}`,
         `   Requisições: ${item.requestCount ?? 0}`,
         `   Persistências: ${item.successCount ?? 0}`,
-        `   Erros: ${item.errorCount ?? 0}`,
+        `   Erros: ${formatHighlightedErrorCount(item.errorCount)}`,
         '',
       )
     })
@@ -245,14 +249,23 @@ function buildExtractionExecutionLogText(payload) {
     lines.push('Nenhum evento detalhado registrado.')
   } else {
     logs.forEach((item, index) => {
+      const isErrorLog =
+        (Number(item.errorCount) || 0) > 0 ||
+        String(item.level ?? '').toUpperCase() === 'ERROR' ||
+        Boolean(item.stackTrace)
+
       lines.push(
         `${index + 1}. ${formatDateTime(item.createdAt)} | ${item.level ?? 'INFO'} | ${item.entityName ?? 'Geral'} | ${item.stage ?? 'Etapa não informada'}`,
         `   Mensagem: ${item.message ?? 'Sem mensagem detalhada.'}`,
-        `   Extraídos: ${item.extractedCount ?? 0} | Inseridos: ${item.insertedCount ?? 0} | Atualizados: ${item.updatedCount ?? 0} | Erros: ${item.errorCount ?? 0}`,
+        `   Extraídos: ${item.extractedCount ?? 0} | Inseridos: ${item.insertedCount ?? 0} | Atualizados: ${item.updatedCount ?? 0} | Erros: ${formatHighlightedErrorCount(item.errorCount)}`,
       )
 
+      if (isErrorLog) {
+        lines.push('   ##!!## ERRO DETECTADO ##!!##')
+      }
+
       if (item.stackTrace) {
-        lines.push('   Stack trace:', `${item.stackTrace}`)
+        lines.push('   Detalhe técnico:', `${item.stackTrace}`)
       }
 
       lines.push('')
@@ -818,13 +831,14 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
         ? estimatedTotalSeconds - elapsedSeconds
         : null
     const completionPercent = Math.min(100, Math.max(0, Math.round(progressRatio * 100)))
+    const estimatedUnits = Math.max(0, Math.min(totalEntities, Math.round(fractionalUnits)))
 
     return {
       completionPercent,
       elapsedLabel: formatDuration(elapsedSeconds),
       etaLabel: formatEtaLabel(etaSeconds),
       requestsPerMinuteLabel: formatRequestsPerMinute(requestsPerMinute),
-      partialUnitsLabel: `${fractionalUnits.toFixed(runningRun ? 1 : 0)}/${totalEntities || 0}`,
+      partialUnitsLabel: `${estimatedUnits}/${totalEntities || 0}`,
       benchmarkRequestsLabel:
         benchmarkRequests > 0 ? `${Math.round(benchmarkRequests)} req/entidade` : 'Sem benchmark ainda',
       currentRequestsLabel: `${runningRequests}`,
@@ -1155,71 +1169,64 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
       </section>
 
       <section className="page-grid extraction-grid">
-        <article className="panel">
-          <div className="panel-header compact">
+        <article className="panel extraction-log-panel">
+          <div className="panel-header compact extraction-log-header">
             <div>
-              <span className="eyebrow">Execução ativa</span>
+              <span className="eyebrow">Logs</span>
             </div>
           </div>
-          {activeExecution ? (
-            <div className="key-value-list">
-              <div className="key-value-row">
-                <span>Execução</span>
-                <strong>{activeExecution.executionId}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Início</span>
-                <strong>{formatDateTime(activeExecution.startedAt)}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Fim</span>
-                <strong>{formatDateTime(activeExecution.finishedAt)}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Entidades com sucesso</span>
-                <strong>{activeExecution.entitiesSuccess ?? 0}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Entidades com erro</span>
-                <strong>{activeExecution.entitiesError ?? 0}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Entidades interrompidas</span>
-                <strong>{activeExecution.entitiesCancelled ?? 0}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Requisições</span>
-                <strong>{activeExecution.requestCount ?? 0}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Persistências</span>
-                <strong>{activeExecution.successCount ?? 0}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Erros</span>
-                <strong>{activeExecution.errorCount ?? 0}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Entidade atual</span>
-                <strong>{currentRun?.entityName ?? 'Aguardando'}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Status atual</span>
-                <strong>{currentRun ? labelFromExtractionStatus(currentRun.status) : 'Sem execução ativa'}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Restantes</span>
-                <strong>{remainingEntities}</strong>
-              </div>
-              <div className="key-value-row">
-                <span>Último log</span>
-                <strong>{latestLog ? `${latestLog.entityName} / ${latestLog.stage}` : 'Sem eventos'}</strong>
+          {executionSummaryLog ? (
+            <div className="extraction-log-content">
+              {activeExecution ? (
+                <div className="extraction-progress-shell extraction-log-progress-shell">
+                  <div className="extraction-progress-summary">
+                    <div>
+                      <span className="extraction-progress-label">Progresso parcial</span>
+                      <strong>{progressMetrics.completionPercent}%</strong>
+                      <p>{progressMetrics.partialUnitsLabel} entidades estimadas</p>
+                    </div>
+                    <div>
+                      <span className="extraction-progress-label">Tempo decorrido</span>
+                      <strong>{progressMetrics.elapsedLabel}</strong>
+                      <p>{progressMetrics.requestsPerMinuteLabel}</p>
+                    </div>
+                    <div>
+                      <span className="extraction-progress-label">Previsão restante</span>
+                      <strong>{progressMetrics.etaLabel}</strong>
+                      <p>{progressMetrics.benchmarkRequestsLabel}</p>
+                    </div>
+                  </div>
+
+                  <div
+                    className="extraction-progress-bar"
+                    role="progressbar"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={progressMetrics.completionPercent}
+                    aria-label="Progresso estimado da extração"
+                  >
+                    <div
+                      className="extraction-progress-fill"
+                      style={{ width: `${Math.max(progressMetrics.completionPercent, isRunning ? 4 : 0)}%` }}
+                    />
+                  </div>
+
+                  <div className="extraction-progress-meta">
+                    <span>Entidade atual: <strong>{currentRun?.entityName ?? 'Aguardando'}</strong></span>
+                    <span>Requisições atuais: <strong>{progressMetrics.currentRequestsLabel}</strong></span>
+                    <span>Persistências atuais: <strong>{progressMetrics.currentSuccessLabel}</strong></span>
+                    <span>Erros atuais: <strong>{progressMetrics.currentErrorsLabel}</strong></span>
+                  </div>
+                </div>
+              ) : null}
+              <div className="extraction-log-list">
+                <ExtractionExecutionSummaryCard summary={executionSummaryLog} />
               </div>
             </div>
           ) : (
             <div className="empty-state">
-              <strong>Nenhuma execução selecionada</strong>
-              <p>Inicie a rotina ou consulte o histórico recente abaixo.</p>
+              <strong>Nenhum log disponível</strong>
+              <p>Os eventos de execução serão exibidos assim que a extração começar.</p>
             </div>
           )}
         </article>
@@ -1231,48 +1238,6 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
             </div>
           </div>
           <div className="extraction-progress-content">
-            {activeExecution ? (
-              <div className="extraction-progress-shell">
-                <div className="extraction-progress-summary">
-                  <div>
-                    <span className="extraction-progress-label">Progresso parcial</span>
-                    <strong>{progressMetrics.completionPercent}%</strong>
-                    <p>{progressMetrics.partialUnitsLabel} entidades estimadas</p>
-                  </div>
-                  <div>
-                    <span className="extraction-progress-label">Tempo decorrido</span>
-                    <strong>{progressMetrics.elapsedLabel}</strong>
-                    <p>{progressMetrics.requestsPerMinuteLabel}</p>
-                  </div>
-                  <div>
-                    <span className="extraction-progress-label">Previsão restante</span>
-                    <strong>{progressMetrics.etaLabel}</strong>
-                    <p>{progressMetrics.benchmarkRequestsLabel}</p>
-                  </div>
-                </div>
-
-                <div
-                  className="extraction-progress-bar"
-                  role="progressbar"
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                  aria-valuenow={progressMetrics.completionPercent}
-                  aria-label="Progresso estimado da extração"
-                >
-                  <div
-                    className="extraction-progress-fill"
-                    style={{ width: `${Math.max(progressMetrics.completionPercent, isRunning ? 4 : 0)}%` }}
-                  />
-                </div>
-
-                <div className="extraction-progress-meta">
-                  <span>Entidade atual: <strong>{currentRun?.entityName ?? 'Aguardando'}</strong></span>
-                  <span>Requisições atuais: <strong>{progressMetrics.currentRequestsLabel}</strong></span>
-                  <span>Persistências atuais: <strong>{progressMetrics.currentSuccessLabel}</strong></span>
-                  <span>Erros atuais: <strong>{progressMetrics.currentErrorsLabel}</strong></span>
-                </div>
-              </div>
-            ) : null}
             <div className="extraction-run-list-shell">
               {entityProgressItems.length > 0 ? (
                 <ul className="activity-list audit-list extraction-run-list">
@@ -1291,24 +1256,6 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
               )}
             </div>
           </div>
-        </article>
-
-        <article className="panel extraction-log-panel">
-          <div className="panel-header compact extraction-log-header">
-            <div>
-              <span className="eyebrow">Logs</span>
-            </div>
-          </div>
-          {executionSummaryLog ? (
-            <div className="extraction-log-list">
-              <ExtractionExecutionSummaryCard summary={executionSummaryLog} />
-            </div>
-          ) : (
-            <div className="empty-state">
-              <strong>Nenhum log disponível</strong>
-              <p>Os eventos de execução serão exibidos assim que a extração começar.</p>
-            </div>
-          )}
         </article>
 
         <article className="panel">

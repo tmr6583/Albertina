@@ -789,11 +789,30 @@ class ExtractionRepository:
             rows = connection.execute(
                 text(
                     """
+                    WITH latest_logs AS (
+                      SELECT *
+                      FROM olist_admin.sync_run_logs
+                      WHERE execution_id = :execution_id
+                      ORDER BY created_at DESC
+                      LIMIT :limit
+                    ),
+                    error_logs AS (
+                      SELECT *
+                      FROM olist_admin.sync_run_logs
+                      WHERE execution_id = :execution_id
+                        AND (
+                          error_count > 0
+                          OR UPPER(level) = 'ERROR'
+                          OR stack_trace IS NOT NULL
+                        )
+                    )
                     SELECT *
-                    FROM olist_admin.sync_run_logs
-                    WHERE execution_id = :execution_id
+                    FROM (
+                      SELECT * FROM latest_logs
+                      UNION
+                      SELECT * FROM error_logs
+                    ) AS combined_logs
                     ORDER BY created_at ASC
-                    LIMIT :limit
                     """
                 ),
                 {"execution_id": execution_id, "limit": limit},

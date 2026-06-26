@@ -583,7 +583,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="service_orders",
         root_step="service_orders.list",
         steps=(
-            EndpointStep(name="service_orders.list", endpoint_path="/ordem-servico", pagination=True, record_id_keys=("id", "idOrdemServico")),
+            EndpointStep(
+                name="service_orders.list",
+                endpoint_path="/ordem-servico",
+                pagination=True,
+                incremental=DATE_RANGE_EMISSAO,
+                record_id_keys=("id", "idOrdemServico"),
+            ),
             EndpointStep(
                 name="service_orders.detail",
                 endpoint_path="/ordem-servico/{idOrdemServico}",

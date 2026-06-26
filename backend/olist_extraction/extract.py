@@ -3,7 +3,8 @@ from __future__ import annotations
 import time
 import traceback
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+import re
 from typing import Any, Callable
 
 import requests
@@ -31,6 +32,8 @@ COMMON_UPDATED_AT_KEYS = (
     "dataCriacao",
     "data",
 )
+
+PLAN_LIMIT_START_DATE_RE = re.compile(r"a partir de (\d{2}/\d{2}/\d{4})")
 
 
 @dataclass
@@ -67,28 +70,79 @@ class OlistApiClient:
     def request_json(self, endpoint_path: str, params: dict[str, Any] | None = None) -> tuple[Any, dict[str, str]]:
         url = self.settings.api_base_url.rstrip("/") + endpoint_path
         attempts = self.settings.request_retries + 1
+        request_params = dict(params or {}) if params else None
 
         for attempt in range(1, attempts + 1):
             try:
-                response = self.session.get(url, params=params, timeout=self.settings.timeout_seconds)
+                response = self.session.get(url, params=request_params, timeout=self.settings.timeout_seconds)
                 response_headers = {key: value for key, value in response.headers.items()}
                 if response.status_code == 429:
-                    self._respect_rate_limit(response_headers)
                     raise requests.HTTPError("Rate limit atingido.", response=response)
                 response.raise_for_status()
                 self._respect_rate_limit(response_headers)
                 return response.json(), response_headers
             except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as exc:
+                adjusted_params = self._adjust_date_range_from_plan_limit(exc, request_params)
+                if adjusted_params is not None and adjusted_params != request_params:
+                    request_params = adjusted_params
+                    self._sleep_interruptibly(self.settings.safety_sleep_seconds)
+                    continue
                 if attempt >= attempts:
                     raise
-                wait_seconds = self.settings.backoff_seconds * attempt
+                is_rate_limited = isinstance(exc, requests.HTTPError) and exc.response is not None and exc.response.status_code == 429
+                wait_seconds = (
+                    self._rate_limit_backoff_seconds(
+                        {key: value for key, value in exc.response.headers.items()},
+                        attempt,
+                    )
+                    if is_rate_limited
+                    else self.settings.backoff_seconds * attempt
+                )
                 self._sleep_interruptibly(wait_seconds)
-                if isinstance(exc, requests.HTTPError) and exc.response is not None:
+                if isinstance(exc, requests.HTTPError) and exc.response is not None and not is_rate_limited:
                     headers = {key: value for key, value in exc.response.headers.items()}
                     self._respect_rate_limit(headers)
+                if not is_rate_limited:
+                    self._sleep_interruptibly(self.settings.safety_sleep_seconds)
+                continue
             self._sleep_interruptibly(self.settings.safety_sleep_seconds)
 
         raise RuntimeError("Falha inesperada na camada HTTP da Olist.")
+
+    def _rate_limit_backoff_seconds(self, headers: dict[str, str], attempt: int) -> float:
+        reset = headers.get("X-RateLimit-Reset")
+        try:
+            reset_value = int(reset) if reset is not None else None
+        except ValueError:
+            reset_value = None
+        if reset_value is not None and reset_value > 0:
+            return float(reset_value)
+        return max(self.settings.backoff_seconds * attempt * 2, 5.0)
+
+    def _adjust_date_range_from_plan_limit(
+        self,
+        exc: requests.Timeout | requests.ConnectionError | requests.HTTPError,
+        request_params: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if not isinstance(exc, requests.HTTPError) or exc.response is None or exc.response.status_code != 400:
+            return None
+        if not request_params or "dataInicialEmissao" not in request_params:
+            return None
+
+        raw_text = exc.response.text or ""
+        try:
+            response_message = response.json().get("mensagem", "") if (response := exc.response) is not None else ""
+        except ValueError:
+            response_message = raw_text
+
+        match = PLAN_LIMIT_START_DATE_RE.search(response_message)
+        if match is None:
+            return None
+
+        allowed_start = datetime.strptime(match.group(1), "%d/%m/%Y").date().isoformat()
+        adjusted_params = dict(request_params)
+        adjusted_params["dataInicialEmissao"] = allowed_start
+        return adjusted_params
 
     def _respect_rate_limit(self, headers: dict[str, str]) -> None:
         remaining = headers.get("X-RateLimit-Remaining")
@@ -315,6 +369,7 @@ class WorkflowRunner:
                         tenant_id=tenant_id,
                         entity_name=entity_name,
                         endpoint_path=endpoint_path,
+                        resolved_path_params=path_params,
                         source_context=source_context,
                         payload=payload,
                         step=step,
@@ -334,6 +389,7 @@ class WorkflowRunner:
                 tenant_id=tenant_id,
                 entity_name=entity_name,
                 endpoint_path=endpoint_path,
+                resolved_path_params=path_params,
                 source_context=source_context,
                 payload=payload,
                 step=step,
@@ -362,7 +418,8 @@ class WorkflowRunner:
             if formatted:
                 params[step.incremental.start_param] = formatted
         elif step.incremental.mode == "date_range":
-            start_value = format_incremental_date(watermark)
+            start_reference = watermark or (utc_now() - timedelta(days=3650))
+            start_value = format_incremental_date(start_reference)
             end_value = format_incremental_date(utc_now())
             if start_value:
                 params[step.incremental.start_param] = start_value
@@ -378,6 +435,7 @@ class WorkflowRunner:
         tenant_id: str,
         entity_name: str,
         endpoint_path: str,
+        resolved_path_params: dict[str, Any],
         source_context: dict[str, Any],
         payload: Any,
         step: EndpointStep,
@@ -396,10 +454,10 @@ class WorkflowRunner:
             for index, record in enumerate(records):
                 self._ensure_not_stopped(entity_name)
                 record_context = {
-                    "path_params": dict(source_context.get("path_params") or {}),
+                    "path_params": dict(resolved_path_params or source_context.get("path_params") or {}),
                     "payload": record,
                     "record_id": extract_first_value(
-                        {"payload": record, "path_params": source_context.get("path_params") or {}},
+                        {"payload": record, "path_params": resolved_path_params or source_context.get("path_params") or {}},
                         step.record_id_keys,
                     ),
                 }
