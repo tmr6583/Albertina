@@ -6,8 +6,13 @@ import { ApiError, apiRequest, clearStoredToken, getStoredToken, setStoredToken 
 const ROUTES = {
   login: '/',
   users: '/usuarios',
-  olist: '/olist',
+  connections: '/conexoes',
   audit: '/auditoria',
+}
+
+const LEGACY_ROUTES = {
+  olist: '/olist',
+  olistCallback: '/olist/callback',
 }
 
 const NAV_ITEMS = [
@@ -18,9 +23,9 @@ const NAV_ITEMS = [
     className: 'nav-users',
   },
   {
-    key: 'olist',
-    label: 'Conexão Olist',
-    path: ROUTES.olist,
+    key: 'connections',
+    label: 'Conexões',
+    path: ROUTES.connections,
     className: 'nav-olist',
   },
   {
@@ -33,8 +38,12 @@ const NAV_ITEMS = [
 
 
 function getPageFromPath(pathname) {
-  if (pathname === ROUTES.olist) {
-    return 'olist'
+  if (pathname === LEGACY_ROUTES.olistCallback) {
+    return 'oauth-callback'
+  }
+
+  if (pathname === ROUTES.connections || pathname === LEGACY_ROUTES.olist) {
+    return 'connections'
   }
 
   if (pathname === ROUTES.audit) {
@@ -55,9 +64,9 @@ function navigateTo(path, replace = false) {
 }
 
 
-function formatAuditTime(value) {
+function formatDateTime(value) {
   if (!value) {
-    return 'agora'
+    return 'Não disponível'
   }
 
   const date = new Date(value)
@@ -65,26 +74,47 @@ function formatAuditTime(value) {
     return value
   }
 
-  const diffMinutes = Math.round((Date.now() - date.getTime()) / 60_000)
-  if (diffMinutes <= 1) {
-    return 'agora'
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+}
+
+
+function getConnectionStatusClass(status) {
+  if (!status) {
+    return 'neutral'
   }
 
-  if (diffMinutes < 60) {
-    return `há ${diffMinutes} min`
+  const normalizedStatus = status.toLowerCase()
+
+  if (normalizedStatus.startsWith('conectad')) {
+    return 'success'
   }
 
-  const diffHours = Math.round(diffMinutes / 60)
-  if (diffHours < 24) {
-    return `há ${diffHours} h`
+  if (normalizedStatus.startsWith('falha')) {
+    return 'danger'
   }
 
-  return date.toLocaleDateString('pt-BR')
+  if (normalizedStatus.includes('pendente') || normalizedStatus.includes('aguardando')) {
+    return 'warning'
+  }
+
+  return 'neutral'
 }
 
 
 function toneFromAudit(item) {
   return ['accent', 'success', 'danger'].includes(item.tone) ? item.tone : 'neutral'
+}
+
+function emptyPageFeedback() {
+  return { message: '', tone: 'neutral' }
 }
 
 function StatusPill({ status }) {
@@ -125,7 +155,6 @@ function UsersPage({
   statusFilter,
   setStatusFilter,
   activity,
-  onLogout,
   onOpenCreate,
   onOpenPasswordFlow,
   onToggleUserStatus,
@@ -138,12 +167,8 @@ function UsersPage({
           <div className="panel-header compact">
             <div>
               <span className="eyebrow">Usuários</span>
-              <h2>Administração de usuários</h2>
             </div>
             <div className="header-actions">
-              <button type="button" className="ghost-button" onClick={onLogout}>
-                Sair
-              </button>
               <button type="button" className="primary-button" onClick={onOpenCreate}>
                 Novo usuário
               </button>
@@ -190,15 +215,15 @@ function UsersPage({
                     <div className="avatar-badge">{user.initials}</div>
                     <div>
                       <strong>{user.email}</strong>
-                      <p>
-                        {user.id} . Criado em {user.createdAt}
+                      <p className="user-meta">
+                        {user.id} . Criado em {formatDateTime(user.createdAt)}
                       </p>
                     </div>
                   </div>
 
                   <span className="role-badge">{user.role}</span>
                   <StatusPill status={user.status} />
-                  <span className="last-access">{user.lastAccess}</span>
+                  <span className="last-access">{formatDateTime(user.lastAccess)}</span>
 
                   <div className="row-actions">
                     <button
@@ -243,7 +268,6 @@ function UsersPage({
           <div className="panel-header compact">
             <div>
               <span className="eyebrow">Operação</span>
-              <h2>Atividade recente</h2>
             </div>
           </div>
 
@@ -259,82 +283,244 @@ function UsersPage({
 }
 
 
-function OlistPage({ overview }) {
-  const cards = [
-    {
-      label: 'Status da conexão',
-      value: overview?.status ?? 'Carregando...',
-      helper: 'Situação atual da integração',
-    },
-    {
-      label: 'Modo de autenticação',
-      value: overview?.authMode ?? 'OAuth 2',
-      helper: 'Fluxo previsto para a conta Olist',
-    },
-    {
-      label: 'Próxima etapa',
-      value: overview?.nextStep ?? 'Aguardando configuração',
-      helper: 'Passo sugerido para avançar',
-    },
-  ]
+function ConnectionsPage({
+  overview,
+  isSubmitting,
+  onSaveOlistSettings,
+  onConnectOlist,
+  onRenewOlistToken,
+  onValidateOlistApi,
+}) {
+  const supabase = overview?.supabase
+  const olist = overview?.olist
+  const [clientSecret, setClientSecret] = useState(olist?.clientSecret ?? '')
+  const formattedLogs = useMemo(
+    () =>
+      (overview?.logs ?? []).map((item) => ({
+        ...item,
+        time: formatDateTime(item.time),
+      })),
+    [overview?.logs],
+  )
+
+  const statusClassName = getConnectionStatusClass(olist?.status)
+  const databaseStatusClassName = getConnectionStatusClass(supabase?.status)
+
+  function handleSubmit(event) {
+    event.preventDefault()
+    onSaveOlistSettings(clientSecret)
+  }
+
+  return (
+    <section className="page-stack connections-page">
+      <section className="page-grid">
+        <article className="panel connections-panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Olist</span>
+            </div>
+            <span className={`connection-status-pill ${statusClassName}`}>
+              {olist?.status ?? 'Carregando...'}
+            </span>
+          </div>
+
+          <div className="key-value-list">
+            <div className="key-value-row">
+              <span>Status da conexão</span>
+              <strong>{olist?.status ?? 'Carregando...'}</strong>
+            </div>
+            <div className="key-value-row">
+              <span>Status do token</span>
+              <strong>{olist?.tokenStatus ?? 'Carregando...'}</strong>
+            </div>
+            <div className="key-value-row">
+              <span>Resumo</span>
+              <strong>{olist?.message ?? 'Carregando...'}</strong>
+            </div>
+          </div>
+
+          <form className="form-grid connections-form" onSubmit={handleSubmit}>
+            <label className="input-shell">
+              <span>Client Secret</span>
+              <input
+                type="text"
+                value={clientSecret}
+                onChange={(event) => setClientSecret(event.target.value)}
+                placeholder="Informe o Client Secret da aplicação Olist"
+              />
+            </label>
+
+            <label className="input-shell">
+              <span>URL de redirecionamento para configurar no ERP</span>
+              <input type="text" value={olist?.redirectUri ?? ''} readOnly />
+            </label>
+
+            <div className="key-value-row emphasis-row">
+              <span>Orientação</span>
+              <strong>{olist?.redirectInstruction ?? 'Carregando...'}</strong>
+            </div>
+
+            <div className="key-value-list compact-list">
+              <div className="key-value-row">
+                <span>Client ID</span>
+                <strong>{olist?.clientId ?? 'Carregando...'}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Base da API</span>
+                <strong>{olist?.apiBaseUrl ?? 'Carregando...'}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Fluxo de OAuth</span>
+                <strong>{olist?.authMode ?? 'Carregando...'}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Último callback recebido</span>
+                <strong>{formatDateTime(olist?.lastCallbackAt)}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Última tentativa de conexão</span>
+                <strong>{formatDateTime(olist?.lastConnectAttemptAt)}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Última renovação registrada</span>
+                <strong>{formatDateTime(olist?.lastTokenRefreshAt)}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Expiração do access token</span>
+                <strong>{formatDateTime(olist?.accessTokenExpiresAt)}</strong>
+              </div>
+              <div className="key-value-row">
+                <span>Expiração do refresh token</span>
+                <strong>{formatDateTime(olist?.refreshTokenExpiresAt)}</strong>
+              </div>
+            </div>
+
+            <div className="toolbar connections-actions">
+              <button type="submit" className="ghost-button" disabled={isSubmitting}>
+                Salvar Client Secret
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => onConnectOlist(clientSecret)}
+                disabled={isSubmitting || clientSecret.trim().length === 0}
+              >
+                Conectar
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={onRenewOlistToken}
+                disabled={isSubmitting}
+              >
+                Renovar token
+              </button>
+              <button
+                type="button"
+                className="ghost-button success"
+                onClick={onValidateOlistApi}
+                disabled={isSubmitting}
+              >
+                Validar API
+              </button>
+            </div>
+          </form>
+        </article>
+
+        <article className="panel connections-traceability-panel">
+          <div className="panel-header compact connections-traceability-header">
+            <div>
+              <span className="eyebrow">Rastreabilidade</span>
+            </div>
+          </div>
+
+          <div className="connection-log-scroll">
+            {formattedLogs.length > 0 ? (
+              <ul className="activity-list audit-list connection-log-list">
+                {formattedLogs.map((item) => (
+                  <ActivityItem key={item.id} item={item} />
+                ))}
+              </ul>
+            ) : (
+              <div className="empty-state">
+                <strong>Nenhum registro de conexão disponível</strong>
+                <p>Os eventos de OAuth da Olist aparecerão aqui.</p>
+              </div>
+            )}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Banco de dados</span>
+            </div>
+            <span className={`connection-status-pill ${databaseStatusClassName}`}>
+              {supabase?.status ?? 'Carregando...'}
+            </span>
+          </div>
+
+          <div className="key-value-list">
+            <div className="key-value-row">
+              <span>Status</span>
+              <strong>{supabase?.status ?? 'Carregando...'}</strong>
+            </div>
+            <div className="key-value-row">
+              <span>Provedor</span>
+              <strong>{supabase?.provider ?? 'Carregando...'}</strong>
+            </div>
+            <div className="key-value-row">
+              <span>Host</span>
+              <strong>{supabase?.host ?? 'Carregando...'}</strong>
+            </div>
+            <div className="key-value-row">
+              <span>Banco</span>
+              <strong>{supabase?.database ?? 'Carregando...'}</strong>
+            </div>
+            <div className="key-value-row">
+              <span>Usuários persistidos</span>
+              <strong>{supabase?.users ?? 'Carregando...'}</strong>
+            </div>
+            <div className="key-value-row">
+              <span>Resumo</span>
+              <strong>{supabase?.detail ?? 'Carregando...'}</strong>
+            </div>
+          </div>
+        </article>
+
+      </section>
+    </section>
+  )
+}
+
+
+function OlistCallbackPage({ phase, message }) {
+  const title = phase === 'error' ? 'Falha na conexão Olist' : 'Concluindo conexão Olist'
+  const detail =
+    message ||
+    (phase === 'processing'
+      ? 'Aguardando a troca do código de autorização por tokens de acesso.'
+      : 'Processando o retorno OAuth da Olist.')
 
   return (
     <section className="page-stack">
       <section className="panel panel-glow">
         <div className="panel-header">
           <div>
-            <span className="eyebrow">Integração</span>
-            <h2>Conexão Olist</h2>
+            <span className="eyebrow">OAuth</span>
+            <h2>{title}</h2>
           </div>
         </div>
-
-        <div className="stats-row stats-row-compact">
-          {cards.map((card) => (
-            <StatCard key={card.label} {...card} />
-          ))}
+        <div className="key-value-list">
+          <div className="key-value-row">
+            <span>Status</span>
+            <strong>{phase === 'error' ? 'Erro' : 'Processando'}</strong>
+          </div>
+          <div className="key-value-row">
+            <span>Detalhe</span>
+            <strong>{detail}</strong>
+          </div>
         </div>
-      </section>
-
-      <section className="page-grid">
-        <article className="panel">
-          <div className="panel-header compact">
-            <div>
-              <span className="eyebrow">Configuração</span>
-              <h2>Parâmetros da integração</h2>
-            </div>
-          </div>
-
-          <div className="key-value-list">
-            <div className="key-value-row">
-              <span>Base da API</span>
-              <strong>{overview?.apiBaseUrl ?? 'Carregando...'}</strong>
-            </div>
-            <div className="key-value-row">
-              <span>Redirect URI</span>
-              <strong>{overview?.redirectUri ?? 'Carregando...'}</strong>
-            </div>
-            <div className="key-value-row">
-              <span>Fluxo OAuth</span>
-              <strong>{overview?.authMode ?? 'Carregando...'}</strong>
-            </div>
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-header compact">
-            <div>
-              <span className="eyebrow">Próximos passos</span>
-              <h2>Backlog imediato</h2>
-            </div>
-          </div>
-
-          <ul className="detail-list">
-            <li>Implementar o redirecionamento para autorização OAuth da Olist.</li>
-            <li>Persistir `access_token` e `refresh_token` com proteção adequada.</li>
-            <li>Criar teste de saúde da conexão antes da primeira carga de dados.</li>
-            <li>Adicionar controle de rate limit e retry por endpoint confirmado.</li>
-          </ul>
-        </article>
       </section>
     </section>
   )
@@ -365,7 +551,7 @@ function AuditPage({ activity }) {
 
   return (
     <section className="page-stack">
-      <section className="panel panel-glow">
+      <section className="panel panel-glow audit-summary-panel">
         <div className="panel-header">
           <div>
             <span className="eyebrow">Rastreabilidade</span>
@@ -380,8 +566,8 @@ function AuditPage({ activity }) {
         </div>
       </section>
 
-      <section className="panel">
-        <div className="panel-header compact">
+      <section className="panel audit-timeline-panel">
+        <div className="panel-header compact audit-timeline-header">
           <div>
             <span className="eyebrow">Linha do tempo</span>
             <h2>Eventos recentes</h2>
@@ -403,13 +589,17 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [users, setUsers] = useState([])
   const [activity, setActivity] = useState([])
-  const [olistOverview, setOlistOverview] = useState(null)
+  const [connectionsOverview, setConnectionsOverview] = useState(null)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [passwordTarget, setPasswordTarget] = useState(null)
   const [loginError, setLoginError] = useState('')
-  const [pageError, setPageError] = useState('')
+  const [pageFeedback, setPageFeedback] = useState(() => emptyPageFeedback())
+  const [oauthCallbackState, setOauthCallbackState] = useState({
+    phase: 'idle',
+    message: '',
+  })
   const [isBooting, setIsBooting] = useState(() => Boolean(getStoredToken()))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loginForm, setLoginForm] = useState({
@@ -428,6 +618,14 @@ function App() {
 
   const isAuthenticated = currentUser !== null
 
+  function clearPageFeedback() {
+    setPageFeedback(emptyPageFeedback())
+  }
+
+  function showPageFeedback(message, tone = 'danger') {
+    setPageFeedback({ message, tone })
+  }
+
   const navigate = useCallback((path, replace = false) => {
     navigateTo(path, replace)
     setActivePage(getPageFromPath(path))
@@ -437,7 +635,7 @@ function App() {
     const [usersData, auditData, overviewData] = await Promise.all([
       apiRequest('/users'),
       apiRequest('/audit'),
-      apiRequest('/olist/overview'),
+      apiRequest('/connections/overview'),
     ])
 
     setUsers(usersData)
@@ -445,11 +643,11 @@ function App() {
       auditData.map((item) => ({
         ...item,
         tone: toneFromAudit(item),
-        time: formatAuditTime(item.time),
+        time: formatDateTime(item.time),
       })),
     )
-    setOlistOverview(overviewData)
-    setPageError('')
+    setConnectionsOverview(overviewData)
+    clearPageFeedback()
   }, [])
 
   useEffect(() => {
@@ -463,6 +661,12 @@ function App() {
 
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  useEffect(() => {
+    if (window.location.pathname === LEGACY_ROUTES.olist) {
+      window.history.replaceState({}, '', ROUTES.connections)
+    }
   }, [])
 
   useEffect(() => {
@@ -487,7 +691,8 @@ function App() {
         setCurrentUser(null)
         setUsers([])
         setActivity([])
-        setOlistOverview(null)
+        setConnectionsOverview(null)
+        clearPageFeedback()
         navigate(ROUTES.login, true)
       } finally {
         setIsBooting(false)
@@ -496,6 +701,55 @@ function App() {
 
     restoreSession()
   }, [hydrateAuthenticatedData, navigate])
+
+  useEffect(() => {
+    if (!isAuthenticated || activePage !== 'oauth-callback' || oauthCallbackState.phase === 'processing') {
+      return
+    }
+
+    const search = new URLSearchParams(window.location.search)
+    const payload = {
+      code: search.get('code'),
+      state: search.get('state'),
+      error: search.get('error'),
+      error_description: search.get('error_description'),
+    }
+
+    async function finishOAuthCallback() {
+      try {
+        await apiRequest('/connections/olist/callback', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
+        showPageFeedback('Conexão Olist concluída com sucesso.', 'success')
+        await hydrateAuthenticatedData()
+        setOauthCallbackState({
+          phase: 'success',
+          message: 'Conexão Olist concluída com sucesso.',
+        })
+        navigate(ROUTES.connections, true)
+      } catch (error) {
+        const message =
+          error instanceof ApiError
+            ? error.message
+            : 'Não foi possível concluir o callback OAuth da Olist.'
+        showPageFeedback(message, 'danger')
+        setOauthCallbackState({
+          phase: 'error',
+          message,
+        })
+        navigate(ROUTES.connections, true)
+      }
+    }
+
+    finishOAuthCallback()
+  }, [
+    activePage,
+    hydrateAuthenticatedData,
+    isAuthenticated,
+    navigate,
+    oauthCallbackState.phase,
+  ])
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
 
@@ -575,10 +829,12 @@ function App() {
       })
       resetCreateForm()
       setIsCreateOpen(false)
+      showPageFeedback('Usuário criado com sucesso.', 'success')
       await hydrateAuthenticatedData()
     } catch (error) {
-      setPageError(
+      showPageFeedback(
         error instanceof ApiError ? error.message : 'Não foi possível criar o usuário.',
+        'danger',
       )
     } finally {
       setIsSubmitting(false)
@@ -594,10 +850,12 @@ function App() {
     setIsSubmitting(true)
     try {
       await apiRequest(`/users/${user.id}`, { method: 'DELETE' })
+      showPageFeedback('Usuário excluído com sucesso.', 'success')
       await hydrateAuthenticatedData()
     } catch (error) {
-      setPageError(
+      showPageFeedback(
         error instanceof ApiError ? error.message : 'Não foi possível excluir o usuário.',
+        'danger',
       )
     } finally {
       setIsSubmitting(false)
@@ -619,13 +877,17 @@ function App() {
         body: JSON.stringify({ status: nextStatus }),
       })
       setUsers((current) => current.map((item) => (item.id === updatedUser.id ? updatedUser : item)))
-      setPageError('')
+      showPageFeedback(
+        nextStatus === 'Ativo' ? 'Usuário ativado com sucesso.' : 'Usuário desativado com sucesso.',
+        'success',
+      )
       await hydrateAuthenticatedData()
     } catch (error) {
-      setPageError(
+      showPageFeedback(
         error instanceof ApiError
           ? error.message
           : 'Não foi possível atualizar o status do usuário.',
+        'danger',
       )
     } finally {
       setIsSubmitting(false)
@@ -651,7 +913,7 @@ function App() {
       passwordForm.password.trim().length < 8 ||
       passwordForm.password !== passwordForm.confirmPassword
     ) {
-      setPageError('A nova senha precisa ter ao menos 8 caracteres e confirmação idêntica.')
+      showPageFeedback('A nova senha precisa ter ao menos 8 caracteres e confirmação idêntica.', 'danger')
       return
     }
 
@@ -666,10 +928,12 @@ function App() {
         password: '',
         confirmPassword: '',
       })
+      showPageFeedback('Senha atualizada com sucesso.', 'success')
       await hydrateAuthenticatedData()
     } catch (error) {
-      setPageError(
+      showPageFeedback(
         error instanceof ApiError ? error.message : 'Não foi possível atualizar a senha.',
+        'danger',
       )
     } finally {
       setIsSubmitting(false)
@@ -686,8 +950,8 @@ function App() {
       setCurrentUser(null)
       setUsers([])
       setActivity([])
-      setOlistOverview(null)
-      setPageError('')
+      setConnectionsOverview(null)
+      clearPageFeedback()
       navigate(ROUTES.login, true)
     }
   }
@@ -705,9 +969,126 @@ function App() {
     })
   }
 
+  async function handleSaveOlistSettings(clientSecret) {
+    setIsSubmitting(true)
+    try {
+      const olist = await apiRequest('/connections/olist/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ clientSecret }),
+      })
+      setConnectionsOverview((current) => ({ ...current, olist }))
+      showPageFeedback('Client Secret salvo com sucesso.', 'success')
+      await hydrateAuthenticatedData()
+    } catch (error) {
+      showPageFeedback(
+        error instanceof ApiError
+          ? error.message
+          : 'Não foi possível salvar a configuração da Olist.',
+        'danger',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleConnectOlist(clientSecret) {
+    setIsSubmitting(true)
+    try {
+      if (clientSecret.trim().length > 0) {
+        await apiRequest('/connections/olist/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ clientSecret }),
+        })
+      }
+      const response = await apiRequest('/connections/olist/connect', {
+        method: 'POST',
+      })
+      clearPageFeedback()
+      if (response.authorizationUrl) {
+        window.location.assign(response.authorizationUrl)
+        return
+      }
+      showPageFeedback('Preparação da conexão Olist concluída.', 'success')
+      await hydrateAuthenticatedData()
+    } catch (error) {
+      showPageFeedback(
+        error instanceof ApiError ? error.message : 'Não foi possível iniciar a conexão Olist.',
+        'danger',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleRenewOlistToken() {
+    setIsSubmitting(true)
+    try {
+      const response = await apiRequest('/connections/olist/renew-token', {
+        method: 'POST',
+      })
+      setConnectionsOverview((current) => ({ ...current, olist: response.olist }))
+      showPageFeedback('Token Olist renovado com sucesso.', 'success')
+      await hydrateAuthenticatedData()
+    } catch (error) {
+      showPageFeedback(
+        error instanceof ApiError ? error.message : 'Não foi possível renovar o token da Olist.',
+        'danger',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleValidateOlistApi() {
+    setIsSubmitting(true)
+    try {
+      const response = await apiRequest('/connections/olist/api-test')
+      setConnectionsOverview((current) => ({ ...current, olist: response.olist }))
+      showPageFeedback('API Olist validada com sucesso.', 'success')
+      await hydrateAuthenticatedData()
+    } catch (error) {
+      showPageFeedback(
+        error instanceof ApiError ? error.message : 'Não foi possível validar a API da Olist.',
+        'danger',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   function renderAuthenticatedPage() {
-    if (activePage === 'olist') {
-      return <OlistPage overview={olistOverview} />
+    if (activePage === 'oauth-callback') {
+      return (
+        <OlistCallbackPage
+          phase={oauthCallbackState.phase === 'error' ? 'error' : 'processing'}
+          message={
+            oauthCallbackState.phase === 'error'
+              ? oauthCallbackState.message
+              : 'Concluindo a autorização OAuth da Olist...'
+          }
+        />
+      )
+    }
+
+    if (activePage === 'connections') {
+      return (
+        <ConnectionsPage
+          key={[
+            connectionsOverview?.olist?.clientSecret ?? '',
+            connectionsOverview?.olist?.status ?? '',
+            connectionsOverview?.olist?.lastCallbackAt ?? '',
+            connectionsOverview?.olist?.lastConnectAttemptAt ?? '',
+            connectionsOverview?.olist?.lastTokenRefreshAt ?? '',
+            String(connectionsOverview?.logs?.length ?? 0),
+          ].join('|')}
+          overview={connectionsOverview}
+          isSubmitting={isSubmitting}
+          onSaveOlistSettings={handleSaveOlistSettings}
+          onConnectOlist={handleConnectOlist}
+          onRenewOlistToken={handleRenewOlistToken}
+          onValidateOlistApi={handleValidateOlistApi}
+        />
+      )
     }
 
     if (activePage === 'audit') {
@@ -723,7 +1104,6 @@ function App() {
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
         activity={activity}
-        onLogout={handleLogout}
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenPasswordFlow={openPasswordFlow}
         onToggleUserStatus={handleToggleUserStatus}
@@ -765,6 +1145,15 @@ function App() {
               </button>
             ))}
           </nav>
+          <div className="topbar-actions">
+            <button
+              type="button"
+              className="nav-link nav-users topbar-logout-button"
+              onClick={handleLogout}
+            >
+              Sair
+            </button>
+          </div>
         </header>
       )}
 
@@ -821,7 +1210,9 @@ function App() {
         </section>
       ) : (
         <>
-          {pageError ? <p className="page-error">{pageError}</p> : null}
+          {pageFeedback.message ? (
+            <p className={`page-feedback ${pageFeedback.tone}`}>{pageFeedback.message}</p>
+          ) : null}
           {renderAuthenticatedPage()}
         </>
       )}
@@ -829,10 +1220,13 @@ function App() {
       {isCreateOpen ? (
         <section className="overlay" role="dialog" aria-modal="true" aria-label="Criar usuário">
           <div className="modal-card">
-            <div className="panel-header compact">
+            <div className="panel-header compact modal-header">
               <div>
                 <span className="eyebrow">Novo usuário</span>
                 <h2>Criar acesso administrativo</h2>
+                <p className="modal-helper">
+                  Cadastre um novo acesso com e-mail válido e status inicial definido.
+                </p>
               </div>
               <button type="button" className="icon-button" onClick={closeCreateModal}>
                 Fechar
@@ -910,10 +1304,13 @@ function App() {
           aria-label="Alterar senha do usuário"
         >
           <div className="modal-card">
-            <div className="panel-header compact">
+            <div className="panel-header compact modal-header">
               <div>
                 <span className="eyebrow">Alterar senha</span>
                 <h2>{passwordTarget.email}</h2>
+                <p className="modal-helper">
+                  Defina uma nova senha e confirme o valor para concluir a atualização.
+                </p>
               </div>
               <button
                 type="button"

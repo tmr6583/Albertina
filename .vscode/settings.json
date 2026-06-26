@@ -1,0 +1,25 @@
+{
+    "sqltools.connections": [
+        {
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": false,
+                    "requestCert": true,
+                    "passphrase": "Esquilo08!!!"
+                }
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "db.zbdgxbktblttarkradmk.supabase.co",
+            "port": 5432,
+            "askForPassword": true,
+            "sshOptions": {
+                "port": 22
+            },
+            "driver": "PostgreSQL",
+            "name": "Albertina",
+            "database": "postgres",
+            "username": "postgres"
+        }
+    ]
+}

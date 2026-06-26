@@ -1,77 +1,77 @@
 # Albertina
 
-Aplicação administrativa para autenticação própria, gestão de usuários e preparação da futura integração com o ERP Olist. O projeto já possui frontend React/Vite e backend FastAPI operacionais, com persistência local em SQLite e foco em evolução posterior para integrações reais com a API da Olist e armazenamento analítico em PostgreSQL/Supabase.
+Aplicação administrativa com autenticação própria, gestão de usuários e integração OAuth real com a Olist. O projeto é composto por frontend em `React + Vite` e backend em `FastAPI`, com persistência principal em `PostgreSQL / Supabase` e fallback local em `SQLite` para desenvolvimento.
 
-## Resumo Executivo
+## Visão Geral
 
-Estado atual do projeto:
+Estado atual da aplicação:
 
-- frontend administrativo funcional em `React + Vite`
-- backend funcional em `FastAPI`
 - autenticação própria por e-mail e senha
-- persistência local em `SQLite`
-- sessões autenticadas via token Bearer
-- trilha de auditoria administrativa
-- páginas reais para usuários, conexão Olist e auditoria
-- integração Olist ainda em estágio preparatório, sem OAuth real implementado
+- gestão administrativa de usuários
+- sessões via token Bearer
+- auditoria operacional persistida
+- tela `Conexões` com operação real da Olist
+- OAuth real da Olist já implementado
+- persistência validada em `PostgreSQL / Supabase`
+- fallback local em `SQLite`
+- interface em `pt-BR`, com identidade visual padronizada
 
-Objetivo de evolução:
+O objetivo do projeto é servir como base administrativa e operacional para a futura sincronização de entidades reais do ERP Olist com persistência estruturada em `PostgreSQL / Supabase`.
 
-- conectar a aplicação a uma conta Olist via `OAuth 2 Authorization Code`
-- consumir entidades reais da API pública da Olist
-- persistir dados operacionais e analíticos em `PostgreSQL / Supabase`
-- implementar sincronizações full e incrementais com rastreabilidade
+## Funcionalidades Implementadas
 
-## Status Atual
+Recursos já disponíveis no repositório:
 
-O repositório já implementa os seguintes recursos:
-
-- tela de login com autenticação própria
-- restauração de sessão autenticada no frontend
+- login com autenticação própria
+- restauração automática da sessão autenticada
 - logout com revogação de sessão
-- página de administração de usuários
+- listagem de usuários
 - criação de usuário administrativo
-- exclusão de usuário administrativo
-- alteração de senha de usuário
+- alteração de senha
 - ativação e desativação de usuários
-- bloqueio para impedir exclusão do usuário autenticado
-- bloqueio para impedir desativação do usuário autenticado
+- exclusão de usuário
+- bloqueio para impedir exclusão do próprio usuário autenticado
+- bloqueio para impedir desativação do próprio usuário autenticado
 - bloqueio de login para usuários inativos
-- página de auditoria com eventos recentes
-- página de visão geral da integração Olist
-- auditoria básica persistida no backend
-- identidade visual em PT-BR com título da aba fixo em `Albertina`
+- trilha de auditoria administrativa
+- tela `Conexões` com status de Olist e banco de dados
+- geração da URL oficial de autorização OAuth da Olist
+- callback OAuth com validação de `state`
+- troca real de código de autorização por `access_token` e `refresh_token`
+- renovação real de token via `refresh_token`
+- persistência de tokens, expiração, `state` e logs da conexão Olist
+- cliente HTTP real inicial para validar a API da Olist
 
-O que ainda não está implementado:
+Pendências atuais de evolução:
 
-- fluxo OAuth real com a Olist
-- armazenamento seguro de `client_secret`, `access_token` e `refresh_token`
 - sincronização real de entidades ERP
-- persistência em PostgreSQL/Supabase
-- catálogo de recursos da API Olist
+- modelagem de domínio operacional/analítica
 - checkpoints de sincronização
-- jobs manuais e incrementais de extração/carga
+- jobs manuais e incrementais
+- criptografia dedicada para segredos OAuth em repouso
+- observabilidade mais ampla para integrações e cargas
 
-## Arquitetura Atual
+## Arquitetura
 
-Fluxo da aplicação hoje:
+Fluxo atual da aplicação:
 
 1. O usuário acessa o frontend em `http://localhost:3500`.
-2. O login envia credenciais para o backend em `http://localhost:8000/api/auth/login`.
-3. O backend valida o e-mail, verifica o hash da senha e cria uma sessão.
-4. O token da sessão é retornado ao frontend e armazenado em `localStorage`.
-5. O frontend reutiliza esse token nas chamadas autenticadas via header `Authorization: Bearer <token>`.
-6. O backend valida a sessão ativa, o prazo de expiração e o status do usuário.
-7. As páginas autenticadas consomem usuários, auditoria e visão geral da integração Olist.
+2. A tela de login envia credenciais para `POST /api/auth/login`.
+3. O backend valida o usuário, cria a sessão e retorna um token Bearer.
+4. O frontend armazena o token em `localStorage`.
+5. As páginas autenticadas consomem `users`, `audit` e `connections/overview`.
+6. A tela `Conexões` opera o fluxo OAuth da Olist e registra os eventos no banco.
+7. A API pode validar a integração real por `GET /api/connections/olist/api-test`.
 
 Componentes principais:
 
-- `frontend/`: interface administrativa React
-- `backend/`: API FastAPI e persistência SQLite
-- `backend/data/albertina.db`: banco SQLite local
-- `files/`: materiais de apoio e insumos visuais/locais
+- `frontend/`: interface React/Vite
+- `backend/`: API FastAPI e regras de negócio
+- `backend/data/albertina.db`: base local SQLite de fallback
+- `supabase/migrations/`: versionamento de schema PostgreSQL/Supabase
+- `files/`: insumos locais, capturas e scripts auxiliares
 
-## Stack Atual
+## Stack
 
 Frontend:
 
@@ -85,19 +85,16 @@ Backend:
 - `Python`
 - `FastAPI`
 - `Uvicorn`
-- `SQLite`
 - `Pydantic`
+- `SQLite`
+- `PostgreSQL / Supabase`
+- `psycopg[binary]`
 
-Segurança atual:
+Segurança atualmente implementada:
 
 - hash de senha com `PBKDF2-HMAC SHA-256`
-- hash de token de sessão com `SHA-256`
-- comparação segura de hash com `hmac.compare_digest`
-
-Observação importante:
-
-- o código atual usa `PBKDF2-HMAC SHA-256` para senhas
-- o uso de `Argon2id` continua sendo uma recomendação para futura evolução
+- hash do token de sessão com `SHA-256`
+- comparação segura com `hmac.compare_digest`
 
 ## Estrutura do Repositório
 
@@ -113,15 +110,19 @@ Albertina/
 |   |-- Albertina.png
 |   |-- Cofre.txt
 |   |-- Logo_Azul.jpg
-|   `-- ui-test-login.png
+|-- supabase/
+|   `-- migrations/
+|       |-- 20260625182500_init_albertina_auth.sql
+|       |-- 20260625202000_add_olist_settings.sql
+|       `-- 20260625214000_oauth_real_and_connection_logs.sql
 `-- frontend/
+    |-- README.md
     |-- index.html
     |-- package.json
     |-- vite.config.js
+    |-- .env.local
     |-- public/
     |   |-- albertina.png
-    |   |-- favicon.svg
-    |   |-- icons.svg
     |   `-- logo-azul.jpg
     `-- src/
         |-- App.css
@@ -131,153 +132,131 @@ Albertina/
         `-- main.jsx
 ```
 
-## Frontend Atual
+## Interface Atual
 
-Rotas da aplicação:
+Rotas do frontend:
 
 - `/`: login
 - `/usuarios`: administração de usuários
-- `/olist`: visão geral da integração Olist
+- `/conexoes`: operação e monitoramento das conexões
 - `/auditoria`: linha do tempo de auditoria
+- `/olist/callback`: rota legada do retorno OAuth no frontend
 
-Comportamentos implementados no frontend:
+Características visuais e comportamentais:
 
-- controle local de sessão com token em `localStorage`
-- roteamento por `history.pushState` e `popstate`
-- hidratação automática da sessão via `/api/auth/me`
-- carregamento conjunto de usuários, auditoria e overview Olist
-- filtragem de usuários por texto e status
-- modais para criar usuário e alterar senha
-- confirmação antes de excluir usuário
-- confirmação antes de ativar ou desativar usuário
-- tratamento centralizado de erros HTTP em `src/api.js`
-
-Observações de UI:
-
-- idioma padrão em `pt-BR`
+- idioma em `pt-BR`
 - título da aba fixo em `Albertina`
 - fonte base `Arial`
-- menu principal no topo alinhado à esquerda
-- texto dos botões do menu em uma linha
+- fundo branco com cards azuis
+- menu principal no topo
+- botão global `Sair` no cabeçalho autenticado
+- datas exibidas em `DD/MM/YYYY HH:MM:SS`
+- modais para criação de usuário e troca de senha
+- feedback visual padronizado para sucesso e erro
 
-## Backend Atual
+## Backend
 
-O backend está concentrado em `backend/app.py` e sobe uma API FastAPI única com bootstrap automático da base local.
+O backend está concentrado em `backend/app.py` e sobe uma API FastAPI única com bootstrap automático.
 
-Inicialização:
+Na inicialização, a aplicação:
 
-- cria o diretório `backend/data/` se necessário
-- cria as tabelas SQLite na primeira execução
-- cria automaticamente o usuário administrador inicial se a base estiver vazia
+- cria as tabelas necessárias
+- migra dados de SQLite para PostgreSQL/Supabase quando aplicável
+- cria o usuário administrador inicial se a base estiver vazia
+- cria a configuração inicial da Olist
 
-Regras de autenticação:
+Regras atuais:
 
 - login sempre por e-mail
 - e-mail normalizado para lowercase
-- senha mínima de 8 caracteres para criação e troca de senha
-- sessão com duração de `12 horas`
-- sessão inválida ou expirada retorna `401`
-- usuário inativo autenticado retorna `403`
-
-Regras de gestão de usuários:
-
-- todos os usuários criados hoje recebem papel `Administrador`
-- o status permitido é `Ativo` ou `Inativo`
+- senha mínima de 8 caracteres
+- duração da sessão: `12 horas`
+- usuário inativo não consegue autenticar nem operar a API
+- todos os usuários criados recebem papel `Administrador`
 - o próprio usuário autenticado não pode ser desativado
 - o próprio usuário autenticado não pode ser excluído
-- ao desativar um usuário, as sessões ativas desse usuário são revogadas
+- ao desativar um usuário, as sessões ativas dele são revogadas
 
-## Persistência Atual em SQLite
+## Persistência
 
-Banco local:
+Banco principal recomendado:
 
-- arquivo: `backend/data/albertina.db`
+- `PostgreSQL / Supabase`
 
-Tabelas existentes:
+Fallback local:
 
-### `users`
+- `SQLite` em `backend/data/albertina.db`
 
-Campos atuais:
+Tabelas operacionais atuais:
 
-- `id TEXT PRIMARY KEY`
-- `email TEXT NOT NULL UNIQUE`
-- `password_hash TEXT NOT NULL`
-- `role TEXT NOT NULL`
-- `status TEXT NOT NULL`
-- `initials TEXT NOT NULL`
-- `created_at TEXT NOT NULL`
-- `updated_at TEXT NOT NULL`
-- `last_access_at TEXT NULL`
+- `users`
+- `sessions`
+- `audits`
+- `olist_settings`
+- `connection_logs`
 
-### `sessions`
+Resumo dos campos principais:
 
-Campos atuais:
+- `users`: identidade, e-mail, hash de senha, status, datas e último acesso
+- `sessions`: vínculo com usuário, hash do token, expiração e revogação
+- `audits`: título, descrição, tom visual e data do evento
+- `olist_settings`: configuração OAuth, tokens, expiração, `state` e status
+- `connection_logs`: eventos operacionais da conexão Olist
 
-- `id TEXT PRIMARY KEY`
-- `user_id TEXT NOT NULL`
-- `token_hash TEXT NOT NULL UNIQUE`
-- `created_at TEXT NOT NULL`
-- `expires_at TEXT NOT NULL`
-- `revoked_at TEXT NULL`
+Migrations versionadas em:
 
-### `audits`
-
-Campos atuais:
-
-- `id TEXT PRIMARY KEY`
-- `title TEXT NOT NULL`
-- `description TEXT NOT NULL`
-- `tone TEXT NOT NULL`
-- `created_at TEXT NOT NULL`
-
-Observação:
-
-- esta modelagem é a base operacional atual
-- a modelagem futura para Supabase/PostgreSQL será mais ampla, incluindo conexão Olist, tokens OAuth, checkpoints e tabelas de domínio ERP
+- `supabase/migrations/20260625182500_init_albertina_auth.sql`
+- `supabase/migrations/20260625202000_add_olist_settings.sql`
+- `supabase/migrations/20260625214000_oauth_real_and_connection_logs.sql`
 
 ## Credencial Inicial
 
-Por padrão, o bootstrap cria:
+Bootstrap padrão:
 
 - e-mail: `admin@empresa.com`
 - senha: `Betin@01012023`
 
-Importante:
+Uso recomendado:
 
-- essas credenciais são adequadas apenas para desenvolvimento local inicial
-- elas devem ser substituídas por variáveis de ambiente ou rotacionadas em ambiente real
+- apenas para desenvolvimento inicial
+- rotacionar ou sobrescrever por variáveis de ambiente em ambientes reais
 
 ## Variáveis de Ambiente
 
-Variáveis já suportadas pelo backend:
+Backend:
+
+- `ALBERTINA_DATABASE_URL`
+  - quando começa com `postgres://` ou `postgresql://`, o backend usa PostgreSQL/Supabase
+
+- `DATABASE_URL`
+  - fallback compatível para a URL do banco
 
 - `ALBERTINA_ADMIN_EMAIL`
-  - valor padrão: `admin@empresa.com`
-  - uso: define o e-mail do usuário administrador inicial
+  - e-mail do administrador inicial
 
 - `ALBERTINA_ADMIN_PASSWORD`
-  - valor padrão: `Betin@01012023`
-  - uso: define a senha do usuário administrador inicial
+  - senha do administrador inicial
 
 - `OLIST_REDIRECT_URI`
-  - valor padrão: `http://localhost:3500/olist/callback`
-  - uso: informa o redirect URI exibido no overview da integração
+  - padrão: `http://localhost:3500/olist/callback`
 
-Variável suportada pelo frontend:
+- `OLIST_CLIENT_ID`
+  - `client_id` usado na geração da URL oficial de autorização
+
+Frontend:
 
 - `VITE_API_BASE_URL`
-  - valor padrão: `http://localhost:8000/api`
-  - uso: altera a URL base da API consumida pelo frontend
+  - padrão: `http://localhost:8000/api`
 
 ## Execução Local
 
 ### Requisitos
 
-- `Python 3.11+` ou compatível com FastAPI/Uvicorn usados no projeto
+- `Python 3.11+`
 - `Node.js 20+`
 - `npm`
 
-### Subindo o backend
+### Backend
 
 No diretório `backend/`:
 
@@ -286,15 +265,24 @@ pip install -r requirements.txt
 uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend disponível em:
+Disponível em:
 
 - `http://localhost:8000`
 
 Health check:
 
-- `http://localhost:8000/api/health`
+- `GET http://localhost:8000/api/health`
 
-### Subindo o frontend
+Exemplo de resposta:
+
+```json
+{
+  "status": "ok",
+  "database": "postgresql"
+}
+```
+
+### Frontend
 
 No diretório `frontend/`:
 
@@ -303,17 +291,11 @@ npm install
 npm run dev
 ```
 
-Frontend disponível em:
+Disponível em:
 
 - `http://localhost:3500`
 
-Configuração relevante do Vite:
-
-- porta fixa `3500`
-- `strictPort: true`
-- host `0.0.0.0`
-
-### Build e lint do frontend
+### Validação de frontend
 
 No diretório `frontend/`:
 
@@ -324,34 +306,27 @@ npm run build
 
 ## CORS
 
-O backend permite chamadas das seguintes origens:
+Origens atualmente permitidas no backend:
 
 - `http://localhost:3500`
 - `http://127.0.0.1:3500`
 
-Se o frontend for servido em outra origem, essa configuração deverá ser atualizada em `backend/app.py`.
+Se o frontend for servido em outra origem, a lista precisa ser ajustada em `backend/app.py`.
 
-## Endpoints da API Atual
+## API Atual
 
-### Saúde da aplicação
+### Saúde
 
 - `GET /api/health`
-  - retorna o status básico do backend
-
-Exemplo de resposta:
-
-```json
-{
-  "status": "ok"
-}
-```
+  - retorna o status do backend e o mecanismo de banco em uso
 
 ### Autenticação
 
 - `POST /api/auth/login`
-  - autentica o usuário e cria uma sessão
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
 
-Payload:
+Exemplo de login:
 
 ```json
 {
@@ -360,25 +335,15 @@ Payload:
 }
 ```
 
-- `GET /api/auth/me`
-  - retorna o usuário autenticado
-  - requer Bearer token
-
-- `POST /api/auth/logout`
-  - revoga a sessão atual
-  - requer Bearer token
-
 ### Usuários
 
 - `GET /api/users`
-  - lista usuários cadastrados
-  - requer Bearer token
-
 - `POST /api/users`
-  - cria um novo usuário
-  - requer Bearer token
+- `PATCH /api/users/{user_id}/password`
+- `PATCH /api/users/{user_id}/status`
+- `DELETE /api/users/{user_id}`
 
-Payload:
+Exemplo de criação:
 
 ```json
 {
@@ -388,11 +353,7 @@ Payload:
 }
 ```
 
-- `PATCH /api/users/{user_id}/password`
-  - altera a senha de um usuário
-  - requer Bearer token
-
-Payload:
+Exemplo de troca de senha:
 
 ```json
 {
@@ -401,11 +362,7 @@ Payload:
 }
 ```
 
-- `PATCH /api/users/{user_id}/status`
-  - ativa ou desativa um usuário
-  - requer Bearer token
-
-Payload:
+Exemplo de mudança de status:
 
 ```json
 {
@@ -413,121 +370,134 @@ Payload:
 }
 ```
 
-- `DELETE /api/users/{user_id}`
-  - exclui um usuário
-  - requer Bearer token
-
 ### Auditoria
 
 - `GET /api/audit`
-  - retorna até 50 eventos mais recentes
-  - requer Bearer token
+  - retorna até `50` eventos mais recentes
 
-### Integração Olist
+### Conexões
+
+- `GET /api/connections/overview`
+- `PATCH /api/connections/olist/settings`
+- `POST /api/connections/olist/connect`
+- `POST /api/connections/olist/callback`
+- `POST /api/connections/olist/renew-token`
+- `GET /api/connections/olist/api-test`
+
+Rotas legadas preservadas:
 
 - `GET /api/olist/overview`
-  - retorna o estado atual da integração planejada
-  - requer Bearer token
+- `POST /api/olist/callback`
 
-Exemplo de resposta:
+Exemplo resumido de `GET /api/connections/overview`:
 
 ```json
 {
-  "status": "Não configurada",
-  "apiBaseUrl": "https://api.tiny.com.br/public-api/v3/",
-  "redirectUri": "http://localhost:3500/olist/callback",
-  "authMode": "OAuth 2 Authorization Code",
-  "nextStep": "Implementar a conexão OAuth real com a conta Olist."
+  "olist": {
+    "status": "Conectada",
+    "tokenStatus": "Token ativo",
+    "clientId": "tiny-api-...",
+    "redirectUri": "http://localhost:3500/olist/callback"
+  },
+  "supabase": {
+    "status": "Conectado",
+    "provider": "Supabase"
+  },
+  "logs": []
 }
 ```
 
-## Comportamentos de Erro Relevantes
+Exemplo resumido de `GET /api/connections/olist/api-test`:
 
-Códigos e cenários importantes:
-
-- `401 Unauthorized`
-  - sessão ausente
-  - sessão inválida
-  - sessão expirada
-  - credenciais incorretas no login
-
-- `403 Forbidden`
-  - tentativa de uso de sessão com usuário inativo
-  - tentativa de login com usuário inativo
-
-- `404 Not Found`
-  - usuário inexistente nas operações de alteração, status ou exclusão
-
-- `409 Conflict`
-  - criação de usuário com e-mail já existente
-
-- `422 Unprocessable Entity`
-  - e-mail inválido
-  - status diferente de `Ativo` ou `Inativo`
-  - confirmação de senha divergente
+```json
+{
+  "status": "ok",
+  "detail": "A API real da Olist respondeu com sucesso.",
+  "resource": "categorias/todas"
+}
+```
 
 ## Integração Olist
 
-Fontes oficiais de referência:
+Referências oficiais:
 
 - `https://api-docs.erp.olist.com/api-reference/`
 - `https://api-docs.erp.olist.com/documentacao/comecando/autenticacao`
 - `https://api-docs.erp.olist.com/documentacao/comecando/limites-de-consulta`
 
-Fatos já considerados no projeto:
+Premissas confirmadas no projeto:
 
 - a API pública usa `OAuth 2 Authorization Code`
-- a base pública utilizada é `https://api.tiny.com.br/public-api/v3/`
-- as chamadas autenticadas usam `Authorization: Bearer <token>`
-- o rate limit é informado por headers da API
-- a integração deve respeitar limites por conta
+- a base utilizada é `https://api.tiny.com.br/public-api/v3/`
+- as chamadas usam `Authorization: Bearer <token>`
+- o rate limit é exposto por headers
 
 Situação atual da integração:
 
-- ainda não existe endpoint de callback OAuth
-- ainda não existe persistência de tokens Olist
-- ainda não existe cliente HTTP real para entidades ERP
-- a página `Conexão Olist` funciona hoje como overview preparatório e backlog técnico
+- geração real da URL de autorização
+- callback validando `state`
+- troca real de código por tokens
+- renovação real com `refresh_token`
+- persistência de tokens e logs no banco
+- validação real da API por recurso documentado
 
-## Regras e Restrições do Projeto
+Recurso atualmente usado para validação:
 
-Diretrizes já definidas:
+- `GET https://api.tiny.com.br/public-api/v3/categorias/todas`
 
-- nunca inventar endpoints, campos ou comportamentos da API Olist
-- qualquer informação não confirmada deve ser marcada como `[A CONFIRMAR]`
-- nunca executar `DROP`, `TRUNCATE` ou `DELETE` sem confirmação explícita quando isso envolver dados operacionais relevantes
-- login sempre por e-mail
-- evitar dados mockados para integração real
-- priorizar evolução incremental e idempotente na futura carga para PostgreSQL
+## Erros Mais Relevantes
+
+- `400 Bad Request`
+  - tentativa de desativar ou excluir o próprio usuário
+  - `state` OAuth inválido ou expirado
+
+- `401 Unauthorized`
+  - sessão ausente, inválida ou expirada
+  - credenciais incorretas
+
+- `403 Forbidden`
+  - usuário inativo
+
+- `404 Not Found`
+  - usuário inexistente
+
+- `409 Conflict`
+  - e-mail já cadastrado
+  - operação da API Olist sem OAuth concluído
+
+- `422 Unprocessable Entity`
+  - e-mail inválido
+  - senha inválida
+  - status inválido
+  - callback OAuth incompleto
 
 ## Segurança
 
-Cuidados obrigatórios:
+Cuidados importantes:
 
-- `files/Cofre.txt` contém segredos locais e não deve ser versionado em repositórios públicos
-- credenciais expostas em material de apoio devem ser rotacionadas
-- senhas nunca devem ser armazenadas em texto puro
-- segredos operacionais devem migrar para `.env` seguro ou cofre apropriado
-- tokens Olist, quando implementados, deverão ser protegidos adequadamente
+- `files/Cofre.txt` contém segredos locais e não deve ir para repositórios públicos
+- credenciais expostas em materiais locais devem ser rotacionadas
+- senhas não são armazenadas em texto puro
+- `client_secret`, `access_token` e `refresh_token` ainda precisam evoluir para criptografia em repouso
+- ambientes reais devem usar `.env` seguro ou cofre apropriado
 
-Limitações atuais a considerar:
+Limitações atuais:
 
-- a persistência atual é local em SQLite e voltada a desenvolvimento
-- ainda não há criptografia de segredos OAuth porque o fluxo Olist real ainda não foi implementado
-- ainda não há gestão de múltiplos tenants nem `RLS`
+- fallback local em `SQLite` mantido para desenvolvimento
+- ausência de `RLS` e multi-tenant
+- ausência de criptografia dedicada para segredos OAuth em repouso
 
-## Roadmap Recomendado
+## Roadmap
 
-Próxima sequência sugerida para evolução:
+Próximos passos recomendados:
 
-1. mover credenciais locais para `.env`
-2. implementar conexão OAuth real com a Olist
-3. persistir `access_token` e `refresh_token` com proteção adequada
-4. criar cliente HTTP para a API Olist com retry e controle de rate limit
-5. modelar as primeiras entidades reais do ERP em PostgreSQL/Supabase
-6. implementar sincronização full e incremental com checkpoint
-7. ampliar a observabilidade técnica para jobs e integrações
+1. mover segredos locais para `.env`
+2. criptografar segredos OAuth em repouso
+3. ampliar o cliente HTTP da Olist para entidades reais
+4. modelar as primeiras entidades do ERP em PostgreSQL/Supabase
+5. implementar sincronização full e incremental
+6. ampliar observabilidade de jobs e integrações
 
-## Notas Finais
+## Nota Final
 
-Este `README` descreve o estado real do projeto no momento atual: uma aplicação administrativa já funcional para autenticação e gestão de usuários, com base local em SQLite, e uma frente de integração Olist ainda em construção. Se o código evoluir em backend, banco ou fluxo OAuth, este documento deve ser atualizado em conjunto para evitar divergência entre documentação e implementação.
+Este documento descreve o estado implementado do projeto no momento atual. Sempre que backend, frontend, banco, OAuth ou integração Olist evoluírem, este `README` deve ser atualizado junto com o código para evitar divergência operacional.
