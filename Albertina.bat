@@ -164,11 +164,13 @@ set "OLIST_CLIENT_ID=%BACKEND_OLIST_CLIENT_ID%"
 set "OLIST_REDIRECT_URI=%BACKEND_OLIST_REDIRECT_URI%"
 
 set "BACKEND_PID="
+set "BACKEND_WAIT_RESULT="
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -WindowStyle Hidden -FilePath 'python' -WorkingDirectory '%APP_ROOT%' -ArgumentList '-m','uvicorn','app:app','--app-dir','%APP_ROOT%\backend','--host','127.0.0.1','--port','8000' -RedirectStandardOutput '%BACKEND_RUNTIME_LOG%' -RedirectStandardError '%BACKEND_RUNTIME_ERR_LOG%'" >nul 2>&1
 call :wait_for_port "%BACKEND_PORT%" %START_WAIT_SECONDS%
+set "BACKEND_WAIT_RESULT=%ERRORLEVEL%"
 call :get_pid_from_port "%BACKEND_PORT%" BACKEND_PID
 
-if not "%ERRORLEVEL%"=="0" (
+if not "%BACKEND_WAIT_RESULT%"=="0" (
   if not "%BACKEND_PID%"=="" call :kill_pid_tree "%BACKEND_PID%" "Backend"
   echo Falha ao iniciar o backend na porta %BACKEND_PORT%.
   call :log "Falha ao iniciar o backend na porta %BACKEND_PORT%."
@@ -193,11 +195,13 @@ set "FRONTEND_API_BASE_URL=%VITE_API_BASE_URL%"
 if "%FRONTEND_API_BASE_URL%"=="" set "FRONTEND_API_BASE_URL=%DEFAULT_VITE_API_BASE_URL%"
 set "VITE_API_BASE_URL=%FRONTEND_API_BASE_URL%"
 set "FRONTEND_PID="
+set "FRONTEND_WAIT_RESULT="
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -WindowStyle Hidden -FilePath 'npm.cmd' -WorkingDirectory '%APP_ROOT%\frontend' -ArgumentList 'run','dev','--','--host','127.0.0.1','--port','3500','--strictPort' -RedirectStandardOutput '%FRONTEND_RUNTIME_LOG%' -RedirectStandardError '%FRONTEND_RUNTIME_ERR_LOG%'" >nul 2>&1
 call :wait_for_port "%FRONTEND_PORT%" %START_WAIT_SECONDS%
+set "FRONTEND_WAIT_RESULT=%ERRORLEVEL%"
 call :get_pid_from_port "%FRONTEND_PORT%" FRONTEND_PID
 
-if not "%ERRORLEVEL%"=="0" (
+if not "%FRONTEND_WAIT_RESULT%"=="0" (
   if not "%FRONTEND_PID%"=="" call :kill_pid_tree "%FRONTEND_PID%" "Frontend"
   echo Falha ao iniciar o frontend na porta %FRONTEND_PORT%.
   call :log "Falha ao iniciar o frontend na porta %FRONTEND_PORT%."
@@ -320,14 +324,16 @@ exit /b 0
 
 :stop_related_processes
 set "KIND=%~1"
-if /I "%KIND%"=="backend" (
-  for /f %%P in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$backendRoot = [regex]::Escape('%APP_ROOT%\backend'); $pids = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -match 'uvicorn' -and (($_.CommandLine -match 'backend\.app:app') -or ($_.CommandLine -match 'app:app' -and $_.CommandLine -match $backendRoot)) } | Select-Object -ExpandProperty ProcessId -Unique; foreach ($pid in $pids) { Write-Output $pid }"') do call :kill_pid_tree "%%P" "Backend relacionado"
-  exit /b 0
-)
-if /I "%KIND%"=="frontend" (
-  for /f %%P in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$frontRoot = [regex]::Escape('%APP_ROOT%\frontend'); $pids = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -match $frontRoot -and $_.CommandLine -match 'vite|npm(\.cmd)?\s+run\s+dev' } | Select-Object -ExpandProperty ProcessId -Unique; foreach ($pid in $pids) { Write-Output $pid }"') do call :kill_pid_tree "%%P" "Frontend relacionado"
-  exit /b 0
-)
+if /I "%KIND%"=="backend" goto stop_related_backend
+if /I "%KIND%"=="frontend" goto stop_related_frontend
+exit /b 0
+
+:stop_related_backend
+for /f %%P in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$backendRoot = [regex]::Escape('%APP_ROOT%\backend'); $procIds = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -and $_.CommandLine -match 'uvicorn' -and (($_.CommandLine -match 'backend\.app:app') -or ($_.CommandLine -match 'app:app' -and $_.CommandLine -match $backendRoot)) } | Select-Object -ExpandProperty ProcessId -Unique; foreach ($procId in $procIds) { Write-Output $procId }"') do call :kill_pid_tree "%%P" "Backend relacionado"
+exit /b 0
+
+:stop_related_frontend
+for /f %%P in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$frontRoot = [regex]::Escape('%APP_ROOT%\frontend'); $procIds = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -and $_.CommandLine -match $frontRoot -and $_.CommandLine -match 'vite|npm(\.cmd)?\s+run\s+dev' } | Select-Object -ExpandProperty ProcessId -Unique; foreach ($procId in $procIds) { Write-Output $procId }"') do call :kill_pid_tree "%%P" "Frontend relacionado"
 exit /b 0
 
 :wait_for_port
