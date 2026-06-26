@@ -142,6 +142,126 @@ function labelFromExtractionStatus(status) {
   return 'Concluída'
 }
 
+function labelFromEntityQueueStatus(status) {
+  if (status === 'pending') {
+    return 'Pendente'
+  }
+
+  return labelFromExtractionStatus(status)
+}
+
+function toneFromEntityQueueStatus(status) {
+  if (status === 'pending') {
+    return 'neutral'
+  }
+
+  return toneFromExtractionStatus(status)
+}
+
+
+function toTimestamp(value) {
+  if (!value) {
+    return null
+  }
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? null : timestamp
+}
+
+
+function formatDuration(totalSeconds) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return '00:00'
+  }
+
+  const normalizedSeconds = Math.max(0, Math.round(totalSeconds))
+  const hours = Math.floor(normalizedSeconds / 3600)
+  const minutes = Math.floor((normalizedSeconds % 3600) / 60)
+  const seconds = normalizedSeconds % 60
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function formatRequestsPerMinute(value) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 'Aguardando ritmo'
+  }
+
+  return `${value.toFixed(value >= 10 ? 0 : 1)} req/min`
+}
+
+function formatEtaLabel(value, fallback = 'Calculando') {
+  if (!Number.isFinite(value) || value <= 0) {
+    return fallback
+  }
+
+  return formatDuration(value)
+}
+
+function buildExtractionExecutionLogText(payload) {
+  const runs = payload?.runs ?? []
+  const logs = payload?.logs ?? []
+  const lines = [
+    'Albertina - Log da Execução de Extração',
+    `Execução: ${payload?.executionId ?? 'Não informado'}`,
+    `Início: ${formatDateTime(payload?.startedAt)}`,
+    `Fim: ${formatDateTime(payload?.finishedAt)}`,
+    `Requisições: ${payload?.requestCount ?? 0}`,
+    `Persistências: ${payload?.successCount ?? 0}`,
+    `Erros: ${payload?.errorCount ?? 0}`,
+    `Entidades previstas: ${payload?.entityTotal ?? 0}`,
+    `Entidades com sucesso: ${payload?.entitiesSuccess ?? 0}`,
+    `Entidades interrompidas: ${payload?.entitiesCancelled ?? 0}`,
+    `Entidades com erro: ${payload?.entitiesError ?? 0}`,
+    '',
+    'Entidades processadas',
+    '--------------------',
+  ]
+
+  if (runs.length === 0) {
+    lines.push('Nenhuma entidade registrada nesta execução.')
+  } else {
+    runs.forEach((item, index) => {
+      lines.push(
+        `${index + 1}. ${item.entityName ?? 'Entidade não informada'}`,
+        `   Status: ${labelFromExtractionStatus(item.status)}`,
+        `   Modo: ${item.syncMode ?? 'Não informado'}`,
+        `   Início: ${formatDateTime(item.startedAt)}`,
+        `   Fim: ${formatDateTime(item.finishedAt)}`,
+        `   Requisições: ${item.requestCount ?? 0}`,
+        `   Persistências: ${item.successCount ?? 0}`,
+        `   Erros: ${item.errorCount ?? 0}`,
+        '',
+      )
+    })
+  }
+
+  lines.push('', 'Eventos do log', '---------------')
+
+  if (logs.length === 0) {
+    lines.push('Nenhum evento detalhado registrado.')
+  } else {
+    logs.forEach((item, index) => {
+      lines.push(
+        `${index + 1}. ${formatDateTime(item.createdAt)} | ${item.level ?? 'INFO'} | ${item.entityName ?? 'Geral'} | ${item.stage ?? 'Etapa não informada'}`,
+        `   Mensagem: ${item.message ?? 'Sem mensagem detalhada.'}`,
+        `   Extraídos: ${item.extractedCount ?? 0} | Inseridos: ${item.insertedCount ?? 0} | Atualizados: ${item.updatedCount ?? 0} | Erros: ${item.errorCount ?? 0}`,
+      )
+
+      if (item.stackTrace) {
+        lines.push('   Stack trace:', `${item.stackTrace}`)
+      }
+
+      lines.push('')
+    })
+  }
+
+  return lines.join('\n')
+}
+
 function emptyPageFeedback() {
   return { message: '', tone: 'neutral' }
 }
@@ -172,6 +292,119 @@ function ActivityItem({ item }) {
         <p>{item.description}</p>
       </div>
       <span>{item.time}</span>
+    </li>
+  )
+}
+
+function ExtractionExecutionSummaryCard({ summary }) {
+  return (
+    <article className={`extraction-executive-card tone-${summary.tone}`}>
+      <header className="extraction-executive-header">
+        <div>
+          <span className="eyebrow">Resumo executivo</span>
+          <strong>{summary.title}</strong>
+        </div>
+        <div className="extraction-executive-header-side">
+          <span className={`extraction-executive-status is-${summary.tone}`}>{summary.statusLabel}</span>
+          <span>{summary.time}</span>
+        </div>
+      </header>
+
+      <div className="extraction-executive-grid">
+        {summary.blocks.map((block) => (
+          <section
+            key={block.label}
+            className={`extraction-executive-block ${block.featured ? 'is-featured' : ''} ${block.variant ? `is-${block.variant}` : ''}`}
+          >
+            <span>{block.label}</span>
+            {block.metrics ? (
+              <div className="extraction-executive-metrics">
+                {block.metrics.map((metric) => (
+                  <div key={metric.label} className="extraction-executive-metric">
+                    <strong>{metric.value}</strong>
+                    <small>{metric.label}</small>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <strong>{block.value}</strong>
+            )}
+            <p>{block.detail}</p>
+          </section>
+        ))}
+      </div>
+    </article>
+  )
+}
+
+function ExtractionRunItem({ item }) {
+  return (
+    <li
+      className={`extraction-run-item tone-${item.tone} ${item.isCurrent ? 'is-current' : ''} ${item.statusKey === 'pending' ? 'is-pending' : ''}`}
+    >
+      <div className="extraction-run-item-header">
+        <div>
+          <strong>{item.entityName}</strong>
+          <p>{item.subtitle}</p>
+        </div>
+        <div className="extraction-run-item-badges">
+          <span className={`extraction-run-status tone-${item.tone}`}>{item.statusLabel}</span>
+          {item.isCurrent ? <span className="extraction-run-badge current">Atual</span> : null}
+        </div>
+      </div>
+
+      <div className="extraction-run-metrics">
+        <div>
+          <span>Requisições</span>
+          <strong>{item.requestCountLabel}</strong>
+        </div>
+        <div>
+          <span>Persistências</span>
+          <strong>{item.successCountLabel}</strong>
+        </div>
+        <div>
+          <span>Erros</span>
+          <strong>{item.errorCountLabel}</strong>
+        </div>
+        <div>
+          <span>ETA</span>
+          <strong>{item.etaLabel}</strong>
+        </div>
+      </div>
+
+      <div className="extraction-run-meta">
+        <span>Velocidade: <strong>{item.speedLabel}</strong></span>
+        <span>{item.footnote}</span>
+      </div>
+    </li>
+  )
+}
+
+function ExtractionHistoryItem({ item, isDownloading, onDownload }) {
+  return (
+    <li>
+      <button
+        type="button"
+        className={`history-download-item tone-${item.tone}`}
+        onClick={() => onDownload(item.executionId)}
+        disabled={isDownloading}
+      >
+        <div className="history-download-main">
+          <strong>{`Execução ${item.executionId.slice(0, 8)}`}</strong>
+          <p className="history-download-description">
+            <span>{`Entidades com sucesso: ${item.entitiesSuccess}`}</span>
+            <span>{`interrompidas: ${item.entitiesCancelled}`}</span>
+            <span className={item.entitiesError > 0 ? 'history-error-count' : ''}>
+              {`com erro: ${item.entitiesError}`}
+            </span>
+            <span>{`requisições: ${item.requestCount}`}</span>
+          </p>
+          <span className="history-download-hint">
+            {isDownloading ? 'Preparando arquivo...' : 'Clique para baixar o log completo'}
+          </span>
+        </div>
+        <span>{item.time}</span>
+      </button>
     </li>
   )
 }
@@ -525,12 +758,14 @@ function ConnectionsPage({
 
 function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshExecution }) {
   const activeExecution = overview?.activeExecution
-  const executionRuns = activeExecution?.runs ?? []
-  const recentExecutions = overview?.recentExecutions ?? []
-  const recentLogs = activeExecution?.logs ?? []
-  const supportedEntities = overview?.supportedEntities ?? []
+  const executionRuns = useMemo(() => activeExecution?.runs ?? [], [activeExecution?.runs])
+  const recentExecutions = useMemo(() => overview?.recentExecutions ?? [], [overview?.recentExecutions])
+  const recentLogs = useMemo(() => activeExecution?.logs ?? [], [activeExecution?.logs])
+  const supportedEntities = useMemo(() => overview?.supportedEntities ?? [], [overview?.supportedEntities])
   const isRunning = Boolean(overview?.running)
   const isStopping = Boolean(overview?.stopRequested)
+  const [clockMs, setClockMs] = useState(() => Date.now())
+  const [downloadingExecutionId, setDownloadingExecutionId] = useState('')
   const runningRun = executionRuns.find((item) => item.status === 'running') ?? null
   const latestRun = executionRuns.at(-1) ?? null
   const currentRun = runningRun ?? latestRun
@@ -538,19 +773,316 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
   const processedEntities = executionRuns.filter((item) => item.status !== 'running').length
   const remainingEntities = Math.max(supportedEntities.length - executionRuns.length, 0)
 
+  useEffect(() => {
+    if (!isRunning) {
+      return undefined
+    }
+
+    const intervalId = window.setInterval(() => {
+      setClockMs(Date.now())
+    }, 10000)
+
+    return () => window.clearInterval(intervalId)
+  }, [isRunning])
+
+  const progressMetrics = useMemo(() => {
+    const totalEntities = supportedEntities.length
+    const startedAtMs = toTimestamp(activeExecution?.startedAt)
+    const finishedAtMs = toTimestamp(activeExecution?.finishedAt)
+    const referenceNow = finishedAtMs ?? clockMs
+    const elapsedSeconds = startedAtMs ? Math.max(0, (referenceNow - startedAtMs) / 1000) : 0
+    const completedRuns = executionRuns.filter((item) => item.status !== 'running')
+    const completedUnits = completedRuns.length
+    const completedRequests = completedRuns
+      .map((item) => Number(item.requestCount) || 0)
+      .filter((value) => value > 0)
+    const benchmarkRequests =
+      completedRequests.length > 0
+        ? completedRequests.reduce((sum, value) => sum + value, 0) / completedRequests.length
+        : 0
+    const runningRequests = Number(runningRun?.requestCount) || 0
+    const partialRunningProgress =
+      runningRun && benchmarkRequests > 0
+        ? Math.min(runningRequests / Math.max(benchmarkRequests, 1), 0.94)
+        : runningRun
+          ? 0.2
+          : 0
+    const fractionalUnits = Math.min(totalEntities, completedUnits + partialRunningProgress)
+    const progressRatio = totalEntities > 0 ? fractionalUnits / totalEntities : 0
+    const requestsPerMinute =
+      elapsedSeconds > 0 ? ((Number(activeExecution?.requestCount) || 0) / elapsedSeconds) * 60 : 0
+    const estimatedTotalSeconds =
+      progressRatio > 0.03 && elapsedSeconds > 0 ? elapsedSeconds / progressRatio : null
+    const etaSeconds =
+      estimatedTotalSeconds && estimatedTotalSeconds > elapsedSeconds
+        ? estimatedTotalSeconds - elapsedSeconds
+        : null
+    const completionPercent = Math.min(100, Math.max(0, Math.round(progressRatio * 100)))
+
+    return {
+      completionPercent,
+      elapsedLabel: formatDuration(elapsedSeconds),
+      etaLabel: formatEtaLabel(etaSeconds),
+      requestsPerMinuteLabel: formatRequestsPerMinute(requestsPerMinute),
+      partialUnitsLabel: `${fractionalUnits.toFixed(runningRun ? 1 : 0)}/${totalEntities || 0}`,
+      benchmarkRequestsLabel:
+        benchmarkRequests > 0 ? `${Math.round(benchmarkRequests)} req/entidade` : 'Sem benchmark ainda',
+      currentRequestsLabel: `${runningRequests}`,
+      currentSuccessLabel: `${Number(currentRun?.successCount) || 0}`,
+      currentErrorsLabel: `${Number(currentRun?.errorCount) || 0}`,
+      progressRatio,
+      benchmarkDurationSeconds:
+        completedRuns.length > 0
+          ? completedRuns
+              .map((item) => {
+                const startedAtMs = toTimestamp(item.startedAt)
+                const finishedAtMs = toTimestamp(item.finishedAt)
+
+                if (!startedAtMs || !finishedAtMs || finishedAtMs <= startedAtMs) {
+                  return 0
+                }
+
+                return (finishedAtMs - startedAtMs) / 1000
+              })
+              .filter((value) => value > 0)
+              .reduce((sum, value, _, source) => sum + value / source.length, 0)
+          : 0,
+      benchmarkRequests,
+    }
+  }, [
+    activeExecution?.finishedAt,
+    activeExecution?.requestCount,
+    activeExecution?.startedAt,
+    clockMs,
+    currentRun?.errorCount,
+    currentRun?.successCount,
+    executionRuns,
+    runningRun,
+    supportedEntities.length,
+  ])
+
+  const entityProgressItems = useMemo(() => {
+    const supportedIndexMap = new Map(supportedEntities.map((entityName, index) => [entityName, index]))
+    const referenceNowMs = toTimestamp(activeExecution?.finishedAt) ?? clockMs
+    const benchmarkDurationSeconds = Number(progressMetrics.benchmarkDurationSeconds) || 0
+    const benchmarkRequests = Number(progressMetrics.benchmarkRequests) || 0
+
+    const runningItemEtaSeconds = (() => {
+      if (!runningRun) {
+        return 0
+      }
+
+      const startedAtMs = toTimestamp(runningRun.startedAt)
+      const elapsedSeconds = startedAtMs ? Math.max(0, (referenceNowMs - startedAtMs) / 1000) : 0
+      const requestCount = Number(runningRun.requestCount) || 0
+      const requestsPerMinute = elapsedSeconds > 0 ? (requestCount / elapsedSeconds) * 60 : 0
+
+      if (requestsPerMinute > 0 && benchmarkRequests > requestCount) {
+        return ((benchmarkRequests - requestCount) / requestsPerMinute) * 60
+      }
+
+      if (benchmarkDurationSeconds > elapsedSeconds) {
+        return benchmarkDurationSeconds - elapsedSeconds
+      }
+
+      return 0
+    })()
+
+    const runItems = executionRuns.map((item) => {
+      const startedAtMs = toTimestamp(item.startedAt)
+      const finishedAtMs = toTimestamp(item.finishedAt)
+      const referenceMs = finishedAtMs ?? referenceNowMs
+      const elapsedSeconds = startedAtMs ? Math.max(0, (referenceMs - startedAtMs) / 1000) : 0
+      const requestCount = Number(item.requestCount) || 0
+      const requestsPerMinute = elapsedSeconds > 0 ? (requestCount / elapsedSeconds) * 60 : 0
+      let etaSeconds = null
+
+      if (item.status === 'running') {
+        if (requestsPerMinute > 0 && benchmarkRequests > requestCount) {
+          etaSeconds = ((benchmarkRequests - requestCount) / requestsPerMinute) * 60
+        } else if (benchmarkDurationSeconds > elapsedSeconds) {
+          etaSeconds = benchmarkDurationSeconds - elapsedSeconds
+        }
+      }
+
+      return {
+        id: item.syncRunId,
+        entityName: item.entityName,
+        statusKey: item.status === 'running' ? 'running' : 'done',
+        statusLabel: labelFromEntityQueueStatus(item.status),
+        tone: toneFromEntityQueueStatus(item.status),
+        isCurrent: item.status === 'running',
+        requestCountLabel: `${requestCount}`,
+        successCountLabel: `${Number(item.successCount) || 0}`,
+        errorCountLabel: `${Number(item.errorCount) || 0}`,
+        speedLabel:
+          item.status === 'running' || item.status === 'success'
+            ? formatRequestsPerMinute(requestsPerMinute)
+            : item.status === 'pending'
+              ? 'Aguardando'
+              : requestsPerMinute > 0
+                ? formatRequestsPerMinute(requestsPerMinute)
+                : 'Sem ritmo',
+        etaLabel:
+          item.status === 'running'
+            ? formatEtaLabel(etaSeconds, 'Calculando')
+            : item.status === 'error'
+              ? 'Com erro'
+              : item.status === 'cancelled'
+                ? 'Interrompida'
+                : 'Concluída',
+        subtitle:
+          item.status === 'running'
+            ? 'Entidade em processamento agora'
+            : `${item.syncMode} • início ${formatDateTime(item.startedAt)}`,
+        footnote:
+          item.status === 'running'
+            ? `Modo ${item.syncMode} • início ${formatDateTime(item.startedAt)}`
+            : `Finalizada em ${formatDateTime(item.finishedAt ?? item.startedAt)}`,
+        sortIndex: supportedIndexMap.get(item.entityName) ?? Number.MAX_SAFE_INTEGER,
+      }
+    })
+
+    const seenEntities = new Set(runItems.map((item) => item.entityName))
+    const pendingItems = supportedEntities
+      .filter((entityName) => !seenEntities.has(entityName))
+      .map((entityName, pendingIndex) => {
+        const queueAhead = pendingIndex + (runningRun ? 1 : 0)
+        const etaSeconds =
+          benchmarkDurationSeconds > 0 ? runningItemEtaSeconds + queueAhead * benchmarkDurationSeconds : null
+
+        return {
+          id: `pending-${entityName}`,
+          entityName,
+          statusKey: 'pending',
+          statusLabel: labelFromEntityQueueStatus('pending'),
+          tone: toneFromEntityQueueStatus('pending'),
+          isCurrent: false,
+          requestCountLabel: '--',
+          successCountLabel: '--',
+          errorCountLabel: '--',
+          speedLabel: 'Aguardando',
+          etaLabel: formatEtaLabel(etaSeconds, 'Aguardando benchmark'),
+          subtitle: 'Entidade ainda não iniciada nesta execução',
+          footnote:
+            benchmarkDurationSeconds > 0
+              ? `Entrada prevista na fila: ${pendingIndex + 1}`
+              : 'Sem benchmark local suficiente para estimar',
+          sortIndex: supportedIndexMap.get(entityName) ?? Number.MAX_SAFE_INTEGER,
+        }
+      })
+
+    return [...runItems, ...pendingItems].sort((left, right) => {
+      const rankMap = { running: 0, pending: 1, done: 2 }
+      const rankDifference = (rankMap[left.statusKey] ?? 9) - (rankMap[right.statusKey] ?? 9)
+
+      if (rankDifference !== 0) {
+        return rankDifference
+      }
+
+      return left.sortIndex - right.sortIndex
+    })
+  }, [
+    activeExecution?.finishedAt,
+    clockMs,
+    executionRuns,
+    progressMetrics.benchmarkDurationSeconds,
+    progressMetrics.benchmarkRequests,
+    runningRun,
+    supportedEntities,
+  ])
+
+  const executionSummaryLog = useMemo(() => {
+    if (!activeExecution) {
+      return null
+    }
+
+    const touchedEntities = [...new Set(recentLogs.map((item) => item.entityName).filter(Boolean))]
+    const touchedStages = [...new Set(recentLogs.map((item) => item.stage).filter(Boolean))]
+    const errorEvents = recentLogs.filter((item) => item.level === 'ERROR').length
+    const latestEventAt = latestLog?.createdAt ?? activeExecution.finishedAt ?? activeExecution.startedAt
+    const executionTone = isRunning
+      ? 'accent'
+      : (activeExecution.entitiesError ?? 0) > 0
+        ? 'danger'
+        : (activeExecution.entitiesCancelled ?? 0) > 0
+          ? 'warning'
+          : 'success'
+    const executionStatus = isRunning
+      ? 'Em andamento'
+      : (activeExecution.entitiesError ?? 0) > 0
+        ? 'Concluída com erro'
+        : (activeExecution.entitiesCancelled ?? 0) > 0
+          ? 'Interrompida'
+          : 'Concluída'
+
+    return {
+      id: activeExecution.executionId,
+      title: `Execução ${activeExecution.executionId.slice(0, 8)} • ${executionStatus}`,
+      time: formatDateTime(latestEventAt),
+      tone: executionTone,
+      statusLabel: executionStatus,
+      blocks: [
+        {
+          label: 'Status',
+          value: executionStatus,
+          detail: `${remainingEntities} entidades restantes nesta execução`,
+        },
+        {
+          label: 'Período',
+          value: `${formatDateTime(activeExecution.startedAt)} até ${formatDateTime(activeExecution.finishedAt)}`,
+          detail: 'Janela completa registrada para a execução ativa ou mais recente',
+        },
+        {
+          label: 'Entidades',
+          value: `${activeExecution.entitiesSuccess ?? 0} ok • ${activeExecution.entitiesError ?? 0} erro • ${activeExecution.entitiesCancelled ?? 0} interrompidas`,
+          detail: `${activeExecution.entityTotal ?? supportedEntities.length ?? 0} entidades previstas no ciclo`,
+        },
+        {
+          label: 'Volume',
+          metrics: [
+            { label: 'Requisições', value: activeExecution.requestCount ?? 0 },
+            { label: 'Persistências', value: activeExecution.successCount ?? 0 },
+            { label: 'Erros', value: activeExecution.errorCount ?? 0 },
+          ],
+          detail: 'Resumo operacional agregado da execução',
+          variant: 'volume',
+        },
+        {
+          label: 'Cobertura do log',
+          value: `${recentLogs.length} eventos • ${touchedEntities.length} entidades • ${touchedStages.length} etapas`,
+          detail: `${errorEvents} eventos de erro identificados na trilha`,
+        },
+        {
+          label: 'Último evento',
+          value: latestLog ? `${latestLog.entityName} / ${latestLog.stage}` : 'Sem eventos detalhados',
+          detail: latestLog?.message ?? 'Nenhuma mensagem detalhada disponível para esta execução.',
+          featured: true,
+        },
+      ],
+    }
+  }, [
+    activeExecution,
+    isRunning,
+    latestLog,
+    recentLogs,
+    remainingEntities,
+    supportedEntities.length,
+  ])
+
   const cards = [
     {
       label: 'Entidades',
       value: String(supportedEntities.length).padStart(2, '0'),
-      helper: 'Cobertura publica configurada',
+      helper: 'Cobertura pública configurada',
     },
     {
       label: 'Execução ativa',
-      value: isRunning ? 'Sim' : 'Nao',
+      value: isRunning ? 'Sim' : 'Não',
       helper: isStopping
         ? 'Parada solicitada, aguardando encerramento seguro'
         : isRunning
-          ? 'Sincronizacao em andamento'
+          ? 'Sincronização em andamento'
           : 'Nenhuma rotina ativa agora',
     },
     {
@@ -567,13 +1099,38 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
     },
   ]
 
+  const handleDownloadExecutionLog = useCallback(async (executionId) => {
+    setDownloadingExecutionId(executionId)
+
+    try {
+      const payload = await apiRequest(`/extraction/executions/${executionId}`)
+      const content = buildExtractionExecutionLogText(payload)
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = window.document.createElement('a')
+      link.href = downloadUrl
+      link.download = `albertina-extracao-${executionId}.txt`
+      window.document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(downloadUrl)
+    } catch (error) {
+      window.alert(
+        error instanceof ApiError
+          ? error.message
+          : 'Não foi possível baixar o log desta execução.',
+      )
+    } finally {
+      setDownloadingExecutionId('')
+    }
+  }, [])
+
   return (
     <section className="page-stack extraction-page">
-      <section className="panel panel-glow">
+      <section className="panel panel-glow extraction-hero-panel">
         <div className="panel-header">
           <div>
             <span className="eyebrow">Extração</span>
-            <h2>Sincronização ERP Olist {'->'} Supabase</h2>
           </div>
           <div className="toolbar extraction-actions">
             <button type="button" className="ghost-button" onClick={onRefreshExecution} disabled={isSubmitting}>
@@ -590,7 +1147,7 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
           </div>
         </div>
 
-        <div className="stats-row stats-row-compact">
+        <div className="stats-row stats-row-compact extraction-hero-stats">
           {cards.map((card) => (
             <StatCard key={card.label} {...card} />
           ))}
@@ -667,33 +1224,73 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
           )}
         </article>
 
-        <article className="panel">
+        <article className="panel extraction-progress-panel">
           <div className="panel-header compact">
             <div>
               <span className="eyebrow">Andamento por entidade</span>
             </div>
           </div>
-          {executionRuns.length > 0 ? (
-            <ul className="activity-list audit-list">
-              {executionRuns.map((item) => (
-                <ActivityItem
-                  key={item.syncRunId}
-                  item={{
-                    id: item.syncRunId,
-                    title: `${item.entityName} • ${labelFromExtractionStatus(item.status)}`,
-                    description: `Modo: ${item.syncMode} | requisições: ${item.requestCount ?? 0} | persistências: ${item.successCount ?? 0} | erros: ${item.errorCount ?? 0}`,
-                    time: formatDateTime(item.finishedAt ?? item.startedAt),
-                    tone: toneFromExtractionStatus(item.status),
-                  }}
-                />
-              ))}
-            </ul>
-          ) : (
-            <div className="empty-state">
-              <strong>Nenhuma entidade em execução</strong>
-              <p>O andamento detalhado aparecerá aqui assim que a extração começar.</p>
+          <div className="extraction-progress-content">
+            {activeExecution ? (
+              <div className="extraction-progress-shell">
+                <div className="extraction-progress-summary">
+                  <div>
+                    <span className="extraction-progress-label">Progresso parcial</span>
+                    <strong>{progressMetrics.completionPercent}%</strong>
+                    <p>{progressMetrics.partialUnitsLabel} entidades estimadas</p>
+                  </div>
+                  <div>
+                    <span className="extraction-progress-label">Tempo decorrido</span>
+                    <strong>{progressMetrics.elapsedLabel}</strong>
+                    <p>{progressMetrics.requestsPerMinuteLabel}</p>
+                  </div>
+                  <div>
+                    <span className="extraction-progress-label">Previsão restante</span>
+                    <strong>{progressMetrics.etaLabel}</strong>
+                    <p>{progressMetrics.benchmarkRequestsLabel}</p>
+                  </div>
+                </div>
+
+                <div
+                  className="extraction-progress-bar"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow={progressMetrics.completionPercent}
+                  aria-label="Progresso estimado da extração"
+                >
+                  <div
+                    className="extraction-progress-fill"
+                    style={{ width: `${Math.max(progressMetrics.completionPercent, isRunning ? 4 : 0)}%` }}
+                  />
+                </div>
+
+                <div className="extraction-progress-meta">
+                  <span>Entidade atual: <strong>{currentRun?.entityName ?? 'Aguardando'}</strong></span>
+                  <span>Requisições atuais: <strong>{progressMetrics.currentRequestsLabel}</strong></span>
+                  <span>Persistências atuais: <strong>{progressMetrics.currentSuccessLabel}</strong></span>
+                  <span>Erros atuais: <strong>{progressMetrics.currentErrorsLabel}</strong></span>
+                </div>
+              </div>
+            ) : null}
+            <div className="extraction-run-list-shell">
+              {entityProgressItems.length > 0 ? (
+                <ul className="activity-list audit-list extraction-run-list">
+                  {entityProgressItems.map((item) => (
+                    <ExtractionRunItem
+                      key={item.id}
+                      item={item}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <div className="empty-state extraction-progress-empty">
+                  <strong>Nenhuma entidade em execução</strong>
+                  <p>O andamento detalhado aparecerá aqui assim que a extração começar.</p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </article>
 
         <article className="panel extraction-log-panel">
@@ -702,21 +1299,10 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
               <span className="eyebrow">Logs</span>
             </div>
           </div>
-          {recentLogs.length > 0 ? (
-            <ul className="activity-list audit-list extraction-log-list">
-              {recentLogs.map((item) => (
-                <ActivityItem
-                  key={item.id}
-                  item={{
-                    id: item.id,
-                    title: `${item.entityName} / ${item.stage}`,
-                    description: item.message,
-                    time: formatDateTime(item.createdAt),
-                    tone: item.level === 'ERROR' ? 'danger' : 'success',
-                  }}
-                />
-              ))}
-            </ul>
+          {executionSummaryLog ? (
+            <div className="extraction-log-list">
+              <ExtractionExecutionSummaryCard summary={executionSummaryLog} />
+            </div>
           ) : (
             <div className="empty-state">
               <strong>Nenhum log disponível</strong>
@@ -734,12 +1320,15 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
           {recentExecutions.length > 0 ? (
             <ul className="activity-list audit-list">
               {recentExecutions.map((item) => (
-                <ActivityItem
+                <ExtractionHistoryItem
                   key={item.executionId}
                   item={{
                     id: item.executionId,
-                    title: `Execução ${item.executionId.slice(0, 8)}`,
-                    description: `Entidades ok: ${item.entitiesSuccess ?? 0} | interrompidas: ${item.entitiesCancelled ?? 0} | erros: ${item.entitiesError ?? 0} | requisições: ${item.requestCount ?? 0}`,
+                    executionId: item.executionId,
+                    entitiesSuccess: item.entitiesSuccess ?? 0,
+                    entitiesCancelled: item.entitiesCancelled ?? 0,
+                    entitiesError: item.entitiesError ?? 0,
+                    requestCount: item.requestCount ?? 0,
                     time: formatDateTime(item.startedAt),
                     tone:
                       (item.entitiesError ?? 0) > 0
@@ -748,6 +1337,8 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
                           ? 'warning'
                           : 'success',
                   }}
+                  isDownloading={downloadingExecutionId === item.executionId}
+                  onDownload={handleDownloadExecutionLog}
                 />
               ))}
             </ul>

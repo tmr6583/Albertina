@@ -65,8 +65,9 @@ Preencha ao menos:
 3. Conecte a aplicação com a Olist na tela `Conexões`.
 4. Acesse o menu `Extração`.
 5. Clique em `Iniciar extração`.
-6. Durante a execução, acompanhe a entidade atual, progresso por entidade e logs em tempo real.
+6. Durante a execução, acompanhe a entidade atual, o progresso por entidade, velocidade e ETA locais, além do card executivo de logs.
 7. Use `Parar extração` para solicitar encerramento seguro.
+8. No quadro `Histórico`, clique em uma execução concluída para baixar o log completo em arquivo `.txt`.
 
 ## Execução Via CLI
 
@@ -81,7 +82,7 @@ python -m olist_extraction.cli --user-id <USER_ID> --actor-email <EMAIL>
 - Arquivo: `backend/logs/olist_extraction.log`
 - Formato: `DD/MM/YYYY HH:MM:SS`
 - Persistência de trilha: `olist_admin.sync_run_logs`
-- A UI faz polling automático para mostrar progresso, entidade atual e últimos eventos.
+- A UI faz polling automático para mostrar progresso, entidade atual, ETA local, resumo executivo e últimos eventos.
 
 ## Documentação Relacionada
 

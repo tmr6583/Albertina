@@ -12,7 +12,7 @@ Estado atual da aplicação:
 - auditoria operacional persistida
 - tela `Conexões` com operação real da Olist
 - menu `Extração` com disparo da sincronização ERP Olist -> Supabase
-- acompanhamento operacional da extração com entidade atual, logs e parada segura
+- acompanhamento operacional da extração com entidade atual, ETA local, card executivo de logs, histórico clicável e parada segura
 - OAuth real da Olist já implementado
 - persistência validada em `PostgreSQL / Supabase`
 - fallback local em `SQLite`
@@ -44,6 +44,7 @@ Recursos já disponíveis no repositório:
 - persistência de tokens, expiração, `state` e logs da conexão Olist
 - cliente HTTP real inicial para validar a API da Olist
 - orquestração de extração completa com logs, controle incremental e persistência raw no Supabase
+- download do log completo por execução a partir do quadro `Histórico`
 
 Pendências atuais de evolução:
 
@@ -65,7 +66,8 @@ Fluxo atual da aplicação:
 5. As páginas autenticadas consomem `users`, `connections/overview`, `extraction/overview` e trilhas operacionais quando necessário.
 6. A tela `Conexões` opera o fluxo OAuth da Olist e registra os eventos no banco.
 7. A API pode validar a integração real por `GET /api/connections/olist/api-test`.
-8. A tela `Extração` dispara a sincronização completa, acompanha o status por polling na API e permite parada segura.
+8. A tela `Extração` dispara a sincronização completa, acompanha o status por polling na API, calcula ETA e velocidade localmente e permite parada segura.
+9. O quadro `Histórico` consulta `GET /api/extraction/executions/{execution_id}` para baixar o log completo da execução selecionada.
 
 Componentes principais:
 
@@ -509,6 +511,7 @@ Situação atual da integração:
 - extração raw com paginação, retry, controle incremental e persistência operacional no Supabase
 - garantia de uma única execução concorrente com trava global no PostgreSQL
 - parada segura com redução de latência para entidades pesadas como `contacts`
+- painel executivo da execução com destaque de erros, velocidade por entidade, ETA local e download do log completo por execução
 
 Recurso atualmente usado para validação:
 

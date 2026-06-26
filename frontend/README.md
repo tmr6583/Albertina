@@ -13,6 +13,7 @@ O frontend implementa hoje:
 - modais de criação de usuário e troca de senha
 - tela `Conexões` com operação real da Olist
 - tela `Extração` para disparo e acompanhamento da sincronização Olist -> Supabase
+- download do log completo por execução a partir do quadro `Histórico`
 - feedback visual padronizado de sucesso e erro
 - botão global `Sair` no cabeçalho autenticado
 
@@ -176,8 +177,9 @@ Observações:
 
 - disparo manual da sincronização completa da API pública Olist
 - acompanhamento da execução ativa com polling automático mais frequente durante parada
-- exibição da entidade atual, progresso por entidade, status e últimas execuções
-- consulta do detalhamento de execuções e logs operacionais
+- exibição da entidade atual, progresso por entidade, velocidade local, ETA local e últimas execuções
+- card executivo da execução com consolidação dos logs operacionais
+- consulta do detalhamento de execuções e download do log completo pelo histórico
 - parada segura por botão `Parar extração`
 - formatação de data e hora em `DD/MM/YYYY HH:MM:SS`
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import sys
+from datetime import datetime
 from pathlib import Path
 
 
@@ -378,6 +379,7 @@ def build_html() -> str:
     current_tables = sorted({item for row in inventory for item in row["atual"]})
     modeled_tables = sorted({item for row in inventory for item in row["core"] if "[A CONFIRMAR]" not in item})
     mart_tables = sorted({item for row in inventory for item in row["mart"]})
+    generated_at = datetime.now().strftime("%d/%m/%Y")
 
     executive_html = []
     for row in EXECUTIVE_ROWS:
@@ -644,7 +646,7 @@ def build_html() -> str:
         </div>
       </div>
       <div class="grid flow-grid">
-        <article class="card flow-card"><div class="flow-step">01 · Disparo</div><h3>UI e API</h3><p>O menu <code>/extracao</code> aciona <code>POST /api/extraction/run</code>, faz polling de <code>/api/extraction/overview</code> e solicita parada segura em <code>/api/extraction/stop</code>.</p></article>
+        <article class="card flow-card"><div class="flow-step">01 · Disparo</div><h3>UI e API</h3><p>O menu <code>/extracao</code> aciona <code>POST /api/extraction/run</code>, faz polling de <code>/api/extraction/overview</code>, permite parada segura em <code>/api/extraction/stop</code> e baixa o log completo pelo histórico com <code>/api/extraction/executions/{{execution_id}}</code>.</p></article>
         <article class="card flow-card"><div class="flow-step">02 · Controle</div><h3>Execução</h3><p>O backend registra andamento, logs e checkpoint incremental em <code>olist_admin.sync_runs</code>, <code>sync_run_logs</code> e <code>sync_watermarks</code>.</p></article>
         <article class="card flow-card"><div class="flow-step">03 · RAW</div><h3>Payload integral</h3><p>Cada resposta confirmada da API pública entra em <code>olist_raw.api_payloads</code> com payload JSON completo, ids externos e timestamp de origem.</p></article>
         <article class="card flow-card"><div class="flow-step">04 · CORE</div><h3>Modelo relacional</h3><p>As migrations já definem o destino em <code>olist_core</code> para cadastros, vendas, logística, fiscal, financeiro, CRM e operações.</p></article>
@@ -732,7 +734,7 @@ def build_html() -> str:
         <span class="badge source">supabase/migrations/20260626110000_olist_erp_finance_and_operations.sql</span>
         <span class="badge source">supabase/migrations/20260626111000_olist_erp_mart_views.sql</span>
       </div>
-      <div class="footer">Gerado a partir do estado atual do repositório em 26/06/2026. Atualize este documento sempre que catálogo, schema ou carga normalizada evoluírem.</div>
+      <div class="footer">Gerado a partir do estado atual do repositório em {generated_at}. Atualize este documento sempre que catálogo, schema, interface operacional ou carga normalizada evoluírem.</div>
     </section>
   </div>
   <script>
