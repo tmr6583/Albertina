@@ -285,3 +285,226 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 [26/06/2026 10:08:34,46] Backend iniciado com PID 25088.
 [26/06/2026 10:08:36,82] Iniciando frontend.
 [26/06/2026 10:08:39,54] Frontend iniciado com PID 42928.
+[26/06/2026 14:03:15,20] Script aberto.
+[26/06/2026 14:03:24,66] Usuario solicitou encerramento da aplicacao.
+[26/06/2026 14:03:24,92] Backend: tentativa de encerramento do PID 25088.
+[26/06/2026 14:03:26,33] Backend encerrado.
+[26/06/2026 14:03:26,59] Frontend: tentativa de encerramento do PID 42928.
+[26/06/2026 14:03:27,58] Frontend: processo da porta 3500 encerrado via PID 47216.
+[26/06/2026 14:03:28,23] Frontend permaneceu ativo na porta 3500 apos a tentativa de encerramento.
+[26/06/2026 14:03:36,54] Usuario solicitou encerramento da aplicacao.
+[26/06/2026 14:03:37,94] Backend encerrado.
+[26/06/2026 14:03:38,90] Frontend: processo da porta 3500 encerrado via PID 47216.
+[26/06/2026 14:03:39,57] Frontend permaneceu ativo na porta 3500 apos a tentativa de encerramento.
+[26/06/2026 14:04:14,12] Usuario solicitou inicio da aplicacao.
+[26/06/2026 14:04:15,05] Iniciando backend.
+[26/06/2026 14:04:30,73] Falha ao iniciar o backend.
+[26/06/2026 14:04:31,37] Iniciando frontend.
+[26/06/2026 14:04:34,73] Frontend iniciado com PID 46928.
+[26/06/2026 14:07:53,66] Script aberto.
+[26/06/2026 14:07:53,67] Consulta de status via linha de comando.
+[26/06/2026 14:08:04,17] Script aberto.
+[26/06/2026 14:08:04,18] Inicializacao via linha de comando.
+[26/06/2026 14:08:04,35] Reinicio completo solicitado.
+[26/06/2026 14:08:04,53] Frontend: taskkill /T executado para o PID 46928.
+[26/06/2026 14:08:04,54] Frontend: tentativa de encerramento da arvore do PID 46928.
+[26/06/2026 14:08:06,21] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:08:06,36] Frontend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:08:06,50] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:08:06,64] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:08:06,79] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:08:06,93] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:08:07,09] Frontend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:08:07,23] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:08:08,01] Frontend encerrado.
+[26/06/2026 14:08:09,94] Backend encerrado.
+[26/06/2026 14:08:11,40] Iniciando backend.
+[26/06/2026 14:08:37,10] Backend: taskkill /T executado para o PID 23184.
+[26/06/2026 14:08:37,11] Falha ao iniciar o backend na porta 8000.
+[26/06/2026 14:09:13,81] Script aberto.
+[26/06/2026 14:09:13,82] Inicializacao via linha de comando.
+[26/06/2026 14:09:14,08] Reinicio completo solicitado.
+[26/06/2026 14:09:15,75] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:09:15,90] Frontend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:09:16,06] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:09:16,20] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:09:16,34] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:09:16,50] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:09:16,67] Frontend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:09:16,82] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:09:17,58] Frontend encerrado.
+[26/06/2026 14:09:18,95] Backend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:09:19,08] Backend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:09:19,24] Backend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:09:19,39] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:09:19,55] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:09:19,70] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:09:19,85] Backend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:09:20,00] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:09:20,77] Backend encerrado.
+[26/06/2026 14:09:22,22] Iniciando backend.
+[26/06/2026 14:15:57,51] Script aberto.
+[26/06/2026 14:15:57,52] Encerramento via linha de comando.
+[26/06/2026 14:15:59,01] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:15:59,16] Frontend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:15:59,33] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:15:59,50] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:15:59,67] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:15:59,81] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:15:59,95] Frontend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:16:00,12] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:00,83] Frontend encerrado.
+[26/06/2026 14:16:02,21] Backend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:16:02,36] Backend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:16:02,52] Backend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:16:02,67] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:02,84] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:03,01] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:03,18] Backend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:16:03,33] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:04,06] Backend encerrado.
+[26/06/2026 14:16:13,13] Script aberto.
+[26/06/2026 14:16:13,14] Inicializacao via linha de comando.
+[26/06/2026 14:16:13,39] Reinicio completo solicitado.
+[26/06/2026 14:16:14,78] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:16:14,92] Frontend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:16:15,07] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:16:15,22] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:15,36] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:15,49] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:15,63] Frontend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:16:15,77] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:16,48] Frontend encerrado.
+[26/06/2026 14:16:17,93] Backend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:16:18,08] Backend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:16:18,22] Backend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:16:18,35] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:18,51] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:18,65] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:18,78] Backend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:16:18,92] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:16:19,64] Backend encerrado.
+[26/06/2026 14:16:21,07] Iniciando backend.
+[26/06/2026 14:22:11,62] Script aberto.
+[26/06/2026 14:22:11,62] Inicializacao via linha de comando.
+[26/06/2026 14:22:11,80] Reinicio completo solicitado.
+[26/06/2026 14:22:13,57] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:22:13,71] Frontend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:22:13,86] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:22:13,99] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:22:14,12] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:22:14,26] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:22:14,41] Frontend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:22:14,55] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:22:15,28] Frontend encerrado.
+[26/06/2026 14:22:16,66] Backend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:22:16,80] Backend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:22:16,95] Backend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:22:17,10] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:22:17,23] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:22:17,37] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:22:17,50] Backend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:22:17,65] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:22:18,32] Backend encerrado.
+[26/06/2026 14:22:19,83] Iniciando backend.
+[26/06/2026 14:22:24,65] Backend iniciado com PID 40968.
+[26/06/2026 14:22:24,66] Iniciando frontend.
+[26/06/2026 14:22:27,69] Frontend iniciado com PID 18476.
+[26/06/2026 14:24:01,48] Script aberto.
+[26/06/2026 14:24:01,49] Encerramento via linha de comando.
+[26/06/2026 14:24:01,78] Frontend: taskkill /T executado para o PID 18476.
+[26/06/2026 14:24:01,78] Frontend: tentativa de encerramento da arvore do PID 18476.
+[26/06/2026 14:24:01,88] Script aberto.
+[26/06/2026 14:24:01,88] Consulta de status via linha de comando.
+[26/06/2026 14:24:03,30] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:24:03,46] Frontend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:24:03,61] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:24:03,76] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:03,91] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:04,06] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:04,08] frontend: taskkill /T executado para o PID 18476.
+[26/06/2026 14:24:04,23] Frontend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:24:04,37] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:04,70] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:24:04,86] Frontend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:24:05,04] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:24:05,18] Frontend encerrado.
+[26/06/2026 14:24:05,19] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:05,36] Backend: taskkill /T executado para o PID 40968.
+[26/06/2026 14:24:05,36] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:05,54] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:05,69] Frontend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:24:05,86] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:06,90] Backend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:24:07,04] Backend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:24:07,19] Backend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:24:07,35] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:07,51] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:07,65] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:07,78] Backend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:24:07,92] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:08,66] Backend encerrado.
+[26/06/2026 14:24:11,75] Script aberto.
+[26/06/2026 14:24:11,76] Encerramento via linha de comando.
+[26/06/2026 14:24:13,11] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:24:13,29] Frontend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:24:13,44] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:24:13,58] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:13,72] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:13,86] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:14,01] Frontend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:24:14,16] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:14,88] Frontend encerrado.
+[26/06/2026 14:24:16,22] Backend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:24:16,43] Backend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:24:16,55] Backend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:24:16,68] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:16,81] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:16,96] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:17,09] Backend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:24:17,24] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:17,95] Backend encerrado.
+[26/06/2026 14:24:19,54] Script aberto.
+[26/06/2026 14:24:19,54] Consulta de status via linha de comando.
+[26/06/2026 14:24:21,32] Script aberto.
+[26/06/2026 14:24:21,32] Encerramento via linha de comando.
+[26/06/2026 14:24:22,81] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:24:22,99] Frontend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:24:23,16] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:24:23,35] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:23,51] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:23,66] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:23,85] Frontend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:24:23,99] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:24,84] Frontend encerrado.
+[26/06/2026 14:24:26,19] Backend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 14:24:26,33] Backend relacionado: taskkill /T executado para o PID constante..
+[26/06/2026 14:24:26,48] Backend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 14:24:26,61] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:26,74] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:26,87] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:27,04] Backend relacionado: taskkill /T executado para o PID rizedAccessException.
+[26/06/2026 14:24:27,19] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 14:24:27,95] Backend encerrado.
+[26/06/2026 15:08:44,89] Script aberto.
+[26/06/2026 15:08:49,51] Usuario consultou status.
+[26/06/2026 15:08:54,48] Usuario solicitou inicio da aplicacao.
+[26/06/2026 15:08:54,62] Reinicio completo solicitado.
+[26/06/2026 15:08:55,98] Frontend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 15:08:56,12] Frontend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 15:08:56,25] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 15:08:56,38] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 15:08:56,51] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 15:08:56,64] Frontend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 15:08:57,29] Frontend encerrado.
+[26/06/2026 15:08:58,55] Backend relacionado: taskkill /T executado para o PID NÆo.
+[26/06/2026 15:08:58,69] Backend relacionado: taskkill /T executado para o PID No.
+[26/06/2026 15:08:58,82] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 15:08:58,96] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 15:08:59,08] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 15:08:59,22] Backend relacionado: taskkill /T executado para o PID +.
+[26/06/2026 15:08:59,85] Backend encerrado.
+[26/06/2026 15:09:01,20] Iniciando backend.
+[26/06/2026 15:09:05,54] Backend iniciado com PID 13456.
+[26/06/2026 15:09:05,54] Iniciando frontend.
+[26/06/2026 15:09:08,91] Frontend iniciado com PID 54260.

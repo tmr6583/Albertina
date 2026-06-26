@@ -13,9 +13,11 @@ set "BACKEND_PID_FILE=%APP_ROOT%\Albertina.backend.pid"
 set "FRONTEND_PID_FILE=%APP_ROOT%\Albertina.frontend.pid"
 set "BACKEND_PORT=8000"
 set "FRONTEND_PORT=3500"
+set "START_WAIT_SECONDS=20"
 set "DEFAULT_ALBERTINA_DATABASE_URL=postgresql://postgres:Esquilo08!!!@db.zbdgxbktblttarkradmk.supabase.co:6543/postgres?sslmode=require"
 set "DEFAULT_OLIST_CLIENT_ID=tiny-api-5a6c6021a81d09b280ca8f1f4e685b6107fc4d3e-1776458496"
 set "DEFAULT_OLIST_REDIRECT_URI=http://localhost:3500/olist/callback"
+set "DEFAULT_VITE_API_BASE_URL=http://localhost:8000/api"
 
 if not exist "%LOG_FILE%" type nul > "%LOG_FILE%"
 call :log "Script aberto."
@@ -95,8 +97,8 @@ call :stop_application
 exit /b %ERRORLEVEL%
 
 :show_status
-call :cleanup_stale_pid "%BACKEND_PID_FILE%" "%BACKEND_PORT%"
-call :cleanup_stale_pid "%FRONTEND_PID_FILE%" "%FRONTEND_PORT%"
+call :cleanup_stale_pid "%BACKEND_PID_FILE%" "%BACKEND_PORT%" "backend"
+call :cleanup_stale_pid "%FRONTEND_PID_FILE%" "%FRONTEND_PORT%" "frontend"
 call :print_component_status "Backend" "%BACKEND_PID_FILE%" "%BACKEND_PORT%" "http://localhost:8000/api/health"
 call :print_component_status "Frontend" "%FRONTEND_PID_FILE%" "%FRONTEND_PORT%" "http://localhost:3500"
 exit /b 0
@@ -132,19 +134,22 @@ exit /b 0
 call :ensure_dependencies
 if not "%ERRORLEVEL%"=="0" exit /b 1
 
+echo Reiniciando a aplicacao...
+call :log "Reinicio completo solicitado."
+call :stop_application >nul
+
 call :start_backend
+if not "%ERRORLEVEL%"=="0" exit /b 1
 call :start_frontend
+if not "%ERRORLEVEL%"=="0" (
+  call :log "Falha ao iniciar o frontend. Encerrando backend para evitar estado parcial."
+  call :stop_component "Backend" "%BACKEND_PID_FILE%" "%BACKEND_PORT%" "backend" >nul
+  exit /b 1
+)
 call :show_status
 exit /b 0
 
 :start_backend
-call :is_port_listening "%BACKEND_PORT%"
-if "%ERRORLEVEL%"=="0" (
-  echo Backend ja esta em execucao.
-  call :log "Backend ja estava em execucao."
-  exit /b 0
-)
-
 echo Iniciando backend...
 call :log "Iniciando backend."
 
@@ -159,9 +164,16 @@ set "OLIST_CLIENT_ID=%BACKEND_OLIST_CLIENT_ID%"
 set "OLIST_REDIRECT_URI=%BACKEND_OLIST_REDIRECT_URI%"
 
 set "BACKEND_PID="
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -WindowStyle Hidden -FilePath 'python' -WorkingDirectory '%APP_ROOT%' -ArgumentList '-m','uvicorn','backend.app:app','--host','127.0.0.1','--port','8000' -RedirectStandardOutput '%BACKEND_RUNTIME_LOG%' -RedirectStandardError '%BACKEND_RUNTIME_ERR_LOG%'" >nul 2>&1
-call :wait_for_port "%BACKEND_PORT%" 12
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -WindowStyle Hidden -FilePath 'python' -WorkingDirectory '%APP_ROOT%' -ArgumentList '-m','uvicorn','app:app','--app-dir','%APP_ROOT%\backend','--host','127.0.0.1','--port','8000' -RedirectStandardOutput '%BACKEND_RUNTIME_LOG%' -RedirectStandardError '%BACKEND_RUNTIME_ERR_LOG%'" >nul 2>&1
+call :wait_for_port "%BACKEND_PORT%" %START_WAIT_SECONDS%
 call :get_pid_from_port "%BACKEND_PORT%" BACKEND_PID
+
+if not "%ERRORLEVEL%"=="0" (
+  if not "%BACKEND_PID%"=="" call :kill_pid_tree "%BACKEND_PID%" "Backend"
+  echo Falha ao iniciar o backend na porta %BACKEND_PORT%.
+  call :log "Falha ao iniciar o backend na porta %BACKEND_PORT%."
+  exit /b 1
+)
 
 if "%BACKEND_PID%"=="" (
   echo Falha ao iniciar o backend.
@@ -171,24 +183,26 @@ if "%BACKEND_PID%"=="" (
 
 >%BACKEND_PID_FILE% echo %BACKEND_PID%
 call :log "Backend iniciado com PID %BACKEND_PID%."
-timeout /t 2 /nobreak >nul
 exit /b 0
 
 :start_frontend
-call :is_port_listening "%FRONTEND_PORT%"
-if "%ERRORLEVEL%"=="0" (
-  echo Frontend ja esta em execucao.
-  call :log "Frontend ja estava em execucao."
-  exit /b 0
-)
-
 echo Iniciando frontend...
 call :log "Iniciando frontend."
 
+set "FRONTEND_API_BASE_URL=%VITE_API_BASE_URL%"
+if "%FRONTEND_API_BASE_URL%"=="" set "FRONTEND_API_BASE_URL=%DEFAULT_VITE_API_BASE_URL%"
+set "VITE_API_BASE_URL=%FRONTEND_API_BASE_URL%"
 set "FRONTEND_PID="
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -WindowStyle Hidden -FilePath 'npm.cmd' -WorkingDirectory '%APP_ROOT%\frontend' -ArgumentList 'run','dev' -RedirectStandardOutput '%FRONTEND_RUNTIME_LOG%' -RedirectStandardError '%FRONTEND_RUNTIME_ERR_LOG%'" >nul 2>&1
-call :wait_for_port "%FRONTEND_PORT%" 12
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -WindowStyle Hidden -FilePath 'npm.cmd' -WorkingDirectory '%APP_ROOT%\frontend' -ArgumentList 'run','dev','--','--host','127.0.0.1','--port','3500','--strictPort' -RedirectStandardOutput '%FRONTEND_RUNTIME_LOG%' -RedirectStandardError '%FRONTEND_RUNTIME_ERR_LOG%'" >nul 2>&1
+call :wait_for_port "%FRONTEND_PORT%" %START_WAIT_SECONDS%
 call :get_pid_from_port "%FRONTEND_PORT%" FRONTEND_PID
+
+if not "%ERRORLEVEL%"=="0" (
+  if not "%FRONTEND_PID%"=="" call :kill_pid_tree "%FRONTEND_PID%" "Frontend"
+  echo Falha ao iniciar o frontend na porta %FRONTEND_PORT%.
+  call :log "Falha ao iniciar o frontend na porta %FRONTEND_PORT%."
+  exit /b 1
+)
 
 if "%FRONTEND_PID%"=="" (
   echo Falha ao iniciar o frontend.
@@ -201,8 +215,8 @@ call :log "Frontend iniciado com PID %FRONTEND_PID%."
 exit /b 0
 
 :stop_application
-call :stop_component "Backend" "%BACKEND_PID_FILE%" "%BACKEND_PORT%"
-call :stop_component "Frontend" "%FRONTEND_PID_FILE%" "%FRONTEND_PORT%"
+call :stop_component "Frontend" "%FRONTEND_PID_FILE%" "%FRONTEND_PORT%" "frontend"
+call :stop_component "Backend" "%BACKEND_PID_FILE%" "%BACKEND_PORT%" "backend"
 call :show_status
 exit /b 0
 
@@ -210,42 +224,59 @@ exit /b 0
 set "LABEL=%~1"
 set "PID_FILE=%~2"
 set "PORT=%~3"
+set "KIND=%~4"
 set "PID="
 
 if exist "%PID_FILE%" set /p PID=<"%PID_FILE%"
 
 if not "%PID%"=="" (
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Stop-Process -Id %PID% -Force -ErrorAction Stop } catch {}" >nul 2>&1
-  call :log "%LABEL%: tentativa de encerramento do PID %PID%."
+  call :kill_pid_tree "%PID%" "%LABEL%"
+  call :log "%LABEL%: tentativa de encerramento da arvore do PID %PID%."
 )
 
 call :get_pid_from_port "%PORT%" PORT_PID
 if not "%PORT_PID%"=="" (
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Stop-Process -Id %PORT_PID% -Force -ErrorAction Stop } catch {}" >nul 2>&1
+  call :kill_pid_tree "%PORT_PID%" "%LABEL%"
   call :log "%LABEL%: processo da porta %PORT% encerrado via PID %PORT_PID%."
 )
 
+call :stop_related_processes "%KIND%"
+
 if exist "%PID_FILE%" del /f /q "%PID_FILE%" >nul 2>&1
 
-call :is_port_listening "%PORT%"
+call :wait_for_port_down "%PORT%" 8
 if "%ERRORLEVEL%"=="0" (
-  echo %LABEL% ainda responde na porta %PORT%.
-  call :log "%LABEL% permaneceu ativo na porta %PORT% apos a tentativa de encerramento."
-  exit /b 1
+  echo %LABEL% encerrado.
+  call :log "%LABEL% encerrado."
+  exit /b 0
 )
 
-echo %LABEL% encerrado.
-call :log "%LABEL% encerrado."
-exit /b 0
+echo %LABEL% ainda responde na porta %PORT%.
+call :log "%LABEL% permaneceu ativo na porta %PORT% apos a tentativa de encerramento."
+exit /b 1
 
 :cleanup_stale_pid
 set "PID_FILE=%~1"
 set "PORT=%~2"
+set "KIND=%~3"
 if not exist "%PID_FILE%" exit /b 0
+
+set "PID="
+set /p PID=<"%PID_FILE%"
+
+if not "%PID%"=="" (
+  call :is_pid_running "%PID%"
+  if not "%ERRORLEVEL%"=="0" (
+    del /f /q "%PID_FILE%" >nul 2>&1
+    exit /b 0
+  )
+)
 
 call :is_port_listening "%PORT%"
 if "%ERRORLEVEL%"=="0" exit /b 0
 
+if not "%PID%"=="" call :kill_pid_tree "%PID%" "%KIND%"
+call :stop_related_processes "%KIND%"
 del /f /q "%PID_FILE%" >nul 2>&1
 exit /b 0
 
@@ -275,6 +306,30 @@ set "%~2="
 for /f %%P in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$conn = Get-NetTCPConnection -LocalPort %~1 -State Listen -ErrorAction SilentlyContinue; if ($conn) { $conn | Select-Object -ExpandProperty OwningProcess -Unique | Select-Object -First 1 }"') do set "%~2=%%P"
 exit /b 0
 
+:is_pid_running
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Get-Process -Id %~1 -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >nul 2>&1
+exit /b %ERRORLEVEL%
+
+:kill_pid_tree
+set "TARGET_PID=%~1"
+set "TARGET_LABEL=%~2"
+if "%TARGET_PID%"=="" exit /b 0
+taskkill /PID %TARGET_PID% /T /F >nul 2>&1
+call :log "%TARGET_LABEL%: taskkill /T executado para o PID %TARGET_PID%."
+exit /b 0
+
+:stop_related_processes
+set "KIND=%~1"
+if /I "%KIND%"=="backend" (
+  for /f %%P in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$backendRoot = [regex]::Escape('%APP_ROOT%\backend'); $pids = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -match 'uvicorn' -and (($_.CommandLine -match 'backend\.app:app') -or ($_.CommandLine -match 'app:app' -and $_.CommandLine -match $backendRoot)) } | Select-Object -ExpandProperty ProcessId -Unique; foreach ($pid in $pids) { Write-Output $pid }"') do call :kill_pid_tree "%%P" "Backend relacionado"
+  exit /b 0
+)
+if /I "%KIND%"=="frontend" (
+  for /f %%P in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$frontRoot = [regex]::Escape('%APP_ROOT%\frontend'); $pids = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -match $frontRoot -and $_.CommandLine -match 'vite|npm(\.cmd)?\s+run\s+dev' } | Select-Object -ExpandProperty ProcessId -Unique; foreach ($pid in $pids) { Write-Output $pid }"') do call :kill_pid_tree "%%P" "Frontend relacionado"
+  exit /b 0
+)
+exit /b 0
+
 :wait_for_port
 set /a WAIT_RETRIES=%~2
 :wait_for_port_loop
@@ -284,6 +339,16 @@ if %WAIT_RETRIES% LEQ 0 exit /b 1
 set /a WAIT_RETRIES-=1
 timeout /t 1 /nobreak >nul
 goto wait_for_port_loop
+
+:wait_for_port_down
+set /a WAIT_RETRIES=%~2
+:wait_for_port_down_loop
+call :is_port_listening "%~1"
+if not "%ERRORLEVEL%"=="0" exit /b 0
+if %WAIT_RETRIES% LEQ 0 exit /b 1
+set /a WAIT_RETRIES-=1
+timeout /t 1 /nobreak >nul
+goto wait_for_port_down_loop
 
 :log
 echo [%date% %time%] %~1>>"%LOG_FILE%"

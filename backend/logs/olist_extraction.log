@@ -354,3 +354,10 @@ HINT:  See server log for query details.
 26/06/2026 13:17:26 | INFO | Execução interrompida com segurança durante a entidade contacts.
 26/06/2026 13:17:26 | INFO | Execucao interrompida com seguranca na entidade contacts
 26/06/2026 13:17:27 | INFO | Execução interrompida da entidade contacts. Extraidos=18, inseridos=0, atualizados=0, tempo_total=1.95s.
+26/06/2026 13:17:56 | INFO | Iniciando extração da entidade company_info.
+26/06/2026 13:17:56 | INFO | Etapa company.info concluida em /info. Extraidos=1, inseridos=0, atualizados=0.
+26/06/2026 13:17:57 | INFO | Fim da entidade company_info. Extraidos=1, inseridos=0, atualizados=0, tempo_total=0.72s.
+26/06/2026 13:17:57 | INFO | Iniciando extração da entidade users.
+26/06/2026 13:17:57 | INFO | Execução interrompida com segurança durante a entidade users.
+26/06/2026 13:17:57 | INFO | Execucao interrompida com seguranca na entidade users
+26/06/2026 13:17:57 | INFO | Execução interrompida da entidade users. Extraidos=0, inseridos=0, atualizados=0, tempo_total=0.53s.
