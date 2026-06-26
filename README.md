@@ -208,6 +208,63 @@ Migrations versionadas em:
 - `supabase/migrations/20260625182500_init_albertina_auth.sql`
 - `supabase/migrations/20260625202000_add_olist_settings.sql`
 - `supabase/migrations/20260625214000_oauth_real_and_connection_logs.sql`
+- `supabase/migrations/20260626103000_olist_erp_foundation.sql`
+- `supabase/migrations/20260626104000_olist_erp_master_data.sql`
+- `supabase/migrations/20260626105000_olist_erp_sales_and_logistics.sql`
+- `supabase/migrations/20260626110000_olist_erp_finance_and_operations.sql`
+- `supabase/migrations/20260626111000_olist_erp_mart_views.sql`
+
+Bootstrap de schema no Supabase/PostgreSQL:
+
+- `backend/bootstrap_supabase.py`
+- usa `ALBERTINA_DATABASE_URL` ou `DATABASE_URL`
+- aplica as migrations em ordem e registra o historico em `public.albertina_schema_migrations`
+
+Exemplo:
+
+```bash
+python backend/bootstrap_supabase.py
+```
+
+Validacao sem aplicar:
+
+```bash
+python backend/bootstrap_supabase.py --dry-run
+```
+
+Views analiticas criadas em `olist_mart`:
+
+- `vw_dim_contacts`
+- `vw_dim_products`
+- `vw_fact_orders`
+- `vw_fact_order_items`
+- `vw_fact_receivables`
+- `vw_fact_payables`
+- `vw_fact_inventory`
+- `vw_crm_pipeline`
+
+Materialized views analiticas criadas em `olist_mart`:
+
+- `mv_dim_contacts`
+- `mv_dim_products`
+- `mv_fact_orders`
+- `mv_fact_order_items`
+- `mv_fact_receivables`
+- `mv_fact_payables`
+- `mv_fact_inventory`
+- `mv_crm_pipeline`
+
+Estrategia de refresh:
+
+- refresh padrao em lote pela funcao `select olist_admin.refresh_olist_mart_views(false);`
+- refresh padrao unitario pela funcao `select olist_admin.refresh_olist_mart_view('mv_fact_orders', false);`
+- refresh concorrente apenas manual, fora de funcao/transacao, por exemplo:
+
+```sql
+REFRESH MATERIALIZED VIEW CONCURRENTLY olist_mart.mv_dim_contacts;
+```
+
+- historico de refresh persistido em `olist_admin.mart_refresh_log`
 
 ## Credencial Inicial
 
