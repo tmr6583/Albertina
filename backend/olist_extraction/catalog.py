@@ -25,6 +25,7 @@ class EndpointStep:
     incremental: IncrementalStrategy | None = None
     extra_params: dict[str, str] = field(default_factory=dict)
     singleton: bool = False
+    only_if_changed: bool = False
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 path_params={"idContato": ("record_id", "id", "idContato")},
                 record_id_keys=("id", "idContato"),
                 singleton=True,
+                only_if_changed=True,
             ),
             EndpointStep(
                 name="contacts.people",
@@ -115,6 +117,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 source_step="contacts.list",
                 path_params={"idContato": ("record_id", "id", "idContato")},
                 record_id_keys=("id", "idPessoa"),
+                only_if_changed=True,
             ),
             EndpointStep(
                 name="contacts.person_detail",
@@ -126,6 +129,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 },
                 record_id_keys=("id", "idPessoa"),
                 singleton=True,
+                only_if_changed=True,
             ),
         ),
     ),

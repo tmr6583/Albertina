@@ -485,6 +485,30 @@ Exemplo resumido de `GET /api/connections/olist/api-test`:
 }
 ```
 
+### Reset operacional da Olist
+
+- Para limpar dados operacionais da Olist sem perder o `client_secret`, use:
+
+```bash
+python scripts/reset_olist_runtime.py
+```
+
+- Para apenas restaurar/aplicar as configuracoes da conexao Olist sem limpar tabelas, use:
+
+```bash
+python scripts/reset_olist_runtime.py --settings-only
+```
+
+- Para simular antes de executar:
+
+```bash
+python scripts/reset_olist_runtime.py --dry-run
+```
+
+- O script preserva o `client_secret` atual do banco e, se ele estiver vazio, reutiliza o valor presente em `backend/.env`.
+- O reset completo limpa `olist_admin`, `olist_raw`, `olist_core`, `public.connection_logs` e atualiza as materialized views de `olist_mart`.
+- So use `--wipe-client-secret` se quiser apagar explicitamente o segredo salvo.
+
 ## Integração Olist
 
 Referências oficiais:

@@ -37,12 +37,37 @@ class ExtractionService:
                     self._schema_ready = True
         return repository.ensure_default_tenant(user_id)
 
+    def _recover_orphan_execution_if_safe(self, repository: ExtractionRepository) -> str | None:
+        active_execution_id = repository.fetch_active_execution_id()
+        if active_execution_id is None or self._running_execution_id is not None:
+            return active_execution_id
+
+        execution_lock_connection = repository.try_acquire_execution_lock()
+        if execution_lock_connection is None:
+            return active_execution_id
+
+        try:
+            recovered_execution_ids = repository.recover_orphan_running_executions(
+                "Execucao marcada como running foi recuperada automaticamente no overview porque nao havia worker ativo mantendo o advisory lock."
+            )
+        finally:
+            repository.release_execution_lock(execution_lock_connection)
+
+        if recovered_execution_ids:
+            repository.append_audit(
+                "Execucao orfa recuperada",
+                "A aplicacao detectou uma execucao marcada como running sem worker ativo e a cancelou automaticamente.",
+                "warning",
+            )
+            return None
+        return active_execution_id
+
     def get_overview(self, user_id: str | None = None) -> dict[str, Any]:
         repository = self._get_repository()
         tenant_id = self.ensure_ready(user_id)
         settings = repository.fetch_olist_settings() or {}
         recent_executions = repository.fetch_recent_executions(limit=10)
-        active_execution_id = self._running_execution_id or repository.fetch_active_execution_id()
+        active_execution_id = self._running_execution_id or self._recover_orphan_execution_if_safe(repository)
         active_execution = None
         if active_execution_id:
             active_execution = self.get_execution(active_execution_id)
@@ -67,12 +92,19 @@ class ExtractionService:
         tenant_id = self.ensure_ready(user_id)
         settings = repository.fetch_olist_settings() or {}
         access_token = str(settings.get("access_token") or "").strip()
+        refresh_token = str(settings.get("refresh_token") or "").strip()
         if not access_token:
-            raise RuntimeError("Conclua a conexão OAuth da Olist antes de executar a extração.")
+            if not refresh_token:
+                raise RuntimeError("Conclua a conexão OAuth da Olist antes de executar a extração.")
+            settings = repository.renew_olist_access_token()
+            access_token = str(settings.get("access_token") or "").strip()
 
         expires_at = parse_olist_datetime(settings.get("access_token_expires_at"))
         if expires_at is not None and expires_at <= utc_now():
-            raise RuntimeError("O access token da Olist expirou. Renove o token antes de iniciar a extração.")
+            if not refresh_token:
+                raise RuntimeError("O access token da Olist expirou. Renove o token antes de iniciar a extração.")
+            settings = repository.renew_olist_access_token()
+            access_token = str(settings.get("access_token") or "").strip()
 
         with self._lock:
             if self._running_execution_id is not None:

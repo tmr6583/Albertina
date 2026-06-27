@@ -21,6 +21,7 @@ set "DEFAULT_VITE_API_BASE_URL=http://localhost:8000/api"
 
 if not exist "%LOG_FILE%" type nul > "%LOG_FILE%"
 call :log "Script aberto."
+call :debug_script_entry "%~1"
 
 if /I "%~1"=="status" goto cli_status
 if /I "%~1"=="iniciar" goto cli_start
@@ -83,16 +84,19 @@ exit /b 0
 
 :cli_status
 call :log "Consulta de status via linha de comando."
+call :debug_lifecycle_event "A" "cli_status"
 call :show_status
 exit /b 0
 
 :cli_start
 call :log "Inicializacao via linha de comando."
+call :debug_lifecycle_event "A" "cli_start"
 call :start_application
 exit /b %ERRORLEVEL%
 
 :cli_stop
 call :log "Encerramento via linha de comando."
+call :debug_lifecycle_event "A" "cli_stop"
 call :stop_application
 exit /b %ERRORLEVEL%
 
@@ -359,3 +363,20 @@ goto wait_for_port_down_loop
 :log
 echo [%date% %time%] %~1>>"%LOG_FILE%"
 exit /b 0
+
+REM #region debug-point A:script-entry
+:debug_script_entry
+call :debug_emit_event "A" "script_entry" "%~1"
+exit /b 0
+
+:debug_lifecycle_event
+call :debug_emit_event "%~1" "%~2" "%~2"
+exit /b 0
+
+:debug_emit_event
+set "DBG_HYPOTHESIS=%~1"
+set "DBG_EVENT=%~2"
+set "DBG_ARG=%~3"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$envFile = Join-Path '%APP_ROOT%' '.dbg\unexpected-app-stop.env'; $url = 'http://127.0.0.1:7777/event'; $session = 'unexpected-app-stop'; if (Test-Path $envFile) { Get-Content $envFile | ForEach-Object { if ($_ -like 'DEBUG_SERVER_URL=*') { $url = $_.Split('=',2)[1] } elseif ($_ -like 'DEBUG_SESSION_ID=*') { $session = $_.Split('=',2)[1] } } }; $self = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $PID); $parent = $null; $grand = $null; if ($self) { $parent = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $self.ParentProcessId) -ErrorAction SilentlyContinue; if ($parent) { $grand = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $parent.ParentProcessId) -ErrorAction SilentlyContinue } }; $payload = @{ sessionId = $session; runId = 'pre-fix'; hypothesisId = '%DBG_HYPOTHESIS%'; location = 'Albertina.bat'; msg = '[DEBUG] bat invocation'; data = @{ event = '%DBG_EVENT%'; arg = '%DBG_ARG%'; appRoot = '%APP_ROOT%'; commandLine = [Environment]::CommandLine; parentProcessId = if ($parent) { $parent.ProcessId } else { $null }; parentName = if ($parent) { $parent.Name } else { $null }; parentCommandLine = if ($parent) { $parent.CommandLine } else { $null }; grandParentProcessId = if ($grand) { $grand.ProcessId } else { $null }; grandParentName = if ($grand) { $grand.Name } else { $null }; grandParentCommandLine = if ($grand) { $grand.CommandLine } else { $null } } } | ConvertTo-Json -Depth 6 -Compress; try { Invoke-RestMethod -Method Post -Uri $url -ContentType 'application/json' -Body $payload | Out-Null } catch {}" >nul 2>&1
+exit /b 0
+REM #endregion

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import threading
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -33,6 +34,7 @@ COMMON_UPDATED_AT_KEYS = (
     "data",
 )
 
+RETRYABLE_HTTP_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 PLAN_LIMIT_START_DATE_RE = re.compile(r"a partir de (\d{2}/\d{2}/\d{4})")
 
 
@@ -53,40 +55,58 @@ class OlistApiClient:
     def __init__(
         self,
         settings: ExtractionSettings,
+        repository: ExtractionRepository,
         access_token: str,
         stop_requested: Callable[[], bool] | None = None,
     ):
         self.settings = settings
+        self.repository = repository
         self.stop_requested = stop_requested or (lambda: False)
+        self._refresh_lock = threading.Lock()
         self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/json",
-                "User-Agent": "Albertina-Extraction/1.0",
-            }
-        )
+        self.session.headers.update({"Accept": "application/json", "User-Agent": "Albertina-Extraction/1.0"})
+        self._set_access_token(access_token)
 
     def request_json(self, endpoint_path: str, params: dict[str, Any] | None = None) -> tuple[Any, dict[str, str]]:
         url = self.settings.api_base_url.rstrip("/") + endpoint_path
         attempts = self.settings.request_retries + 1
         request_params = dict(params or {}) if params else None
+        last_error: Exception | None = None
 
         for attempt in range(1, attempts + 1):
+            request_started_at = time.monotonic()
             try:
                 response = self.session.get(url, params=request_params, timeout=self.settings.timeout_seconds)
                 response_headers = {key: value for key, value in response.headers.items()}
+                elapsed_seconds = round(time.monotonic() - request_started_at, 3)
+                if response.status_code in {401, 403}:
+                    auth_error = requests.HTTPError("Falha de autenticacao com a API da Olist.", response=response)
+                    last_error = auth_error
+                    if self._refresh_access_token():
+                        self._sleep_interruptibly(self.settings.safety_sleep_seconds)
+                        continue
+                    raise auth_error
                 if response.status_code == 429:
-                    raise requests.HTTPError("Rate limit atingido.", response=response)
+                    rate_limit_error = requests.HTTPError("Rate limit atingido.", response=response)
+                    last_error = rate_limit_error
+                    raise rate_limit_error
                 response.raise_for_status()
                 self._respect_rate_limit(response_headers)
-                return response.json(), response_headers
+                try:
+                    return response.json(), response_headers
+                except ValueError as exc:
+                    raise RuntimeError(f"A API da Olist retornou JSON invalido em {endpoint_path}.") from exc
             except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as exc:
+                last_error = exc
                 adjusted_params = self._adjust_date_range_from_plan_limit(exc, request_params)
                 if adjusted_params is not None and adjusted_params != request_params:
                     request_params = adjusted_params
                     self._sleep_interruptibly(self.settings.safety_sleep_seconds)
                     continue
+                if isinstance(exc, requests.HTTPError):
+                    status_code = exc.response.status_code if exc.response is not None else None
+                    if status_code is not None and status_code not in RETRYABLE_HTTP_STATUS_CODES:
+                        raise
                 if attempt >= attempts:
                     raise
                 is_rate_limited = isinstance(exc, requests.HTTPError) and exc.response is not None and exc.response.status_code == 429
@@ -105,9 +125,28 @@ class OlistApiClient:
                 if not is_rate_limited:
                     self._sleep_interruptibly(self.settings.safety_sleep_seconds)
                 continue
-            self._sleep_interruptibly(self.settings.safety_sleep_seconds)
 
+        if last_error is not None:
+            raise last_error
         raise RuntimeError("Falha inesperada na camada HTTP da Olist.")
+
+    def _set_access_token(self, access_token: str) -> None:
+        self.session.headers["Authorization"] = f"Bearer {access_token}"
+
+    def _refresh_access_token(self) -> bool:
+        with self._refresh_lock:
+            current_settings = self.repository.fetch_olist_settings() or {}
+            current_access_token = str(current_settings.get("access_token") or "").strip()
+            if current_access_token and self.session.headers.get("Authorization") != f"Bearer {current_access_token}":
+                self._set_access_token(current_access_token)
+                return True
+
+            refreshed_settings = self.repository.renew_olist_access_token()
+            refreshed_access_token = str(refreshed_settings.get("access_token") or "").strip()
+            if not refreshed_access_token:
+                return False
+            self._set_access_token(refreshed_access_token)
+            return True
 
     def _rate_limit_backoff_seconds(self, headers: dict[str, str], attempt: int) -> float:
         reset = headers.get("X-RateLimit-Reset")
@@ -183,9 +222,10 @@ class WorkflowRunner:
     ):
         self.settings = settings
         self.repository = repository
-        self.client = OlistApiClient(settings, access_token, stop_requested=stop_requested)
+        self.client = OlistApiClient(settings, repository, access_token, stop_requested=stop_requested)
         self.logger = build_logger("albertina.olist_extraction", settings.log_file_path)
         self.stop_requested = stop_requested or (lambda: False)
+        self._debug_state: dict[str, Any] = {"entity": None, "step": None, "sourceIndex": 0, "sourceTotal": 0}
 
     def run_workflow(self, *, execution_id: str, tenant_id: str, workflow: Workflow) -> dict[str, Any]:
         root_step = next(step for step in workflow.steps if step.name == workflow.root_step)
@@ -203,8 +243,23 @@ class WorkflowRunner:
         counters = WorkflowCounters()
         contexts_by_step: dict[str, list[dict[str, Any]]] = {}
         status = "success"
-        last_success_at = utc_now()
         started_at = utc_now()
+        next_watermark = started_at if root_step.incremental else None
+        heartbeat_stop = threading.Event()
+        self._debug_state = {"entity": workflow.entity_name, "step": "workflow.start", "sourceIndex": 0, "sourceTotal": 0}
+        heartbeat_thread = threading.Thread(
+            target=self._debug_heartbeat_loop,
+            kwargs={
+                "heartbeat_stop": heartbeat_stop,
+                "execution_id": execution_id,
+                "sync_run_id": sync_run_id,
+                "tenant_id": tenant_id,
+                "entity_name": workflow.entity_name,
+                "counters": counters,
+            },
+            daemon=True,
+        )
+        heartbeat_thread.start()
 
         self._log(
             execution_id=execution_id,
@@ -230,9 +285,11 @@ class WorkflowRunner:
                     counters=counters,
                 )
                 contexts_by_step[step.name] = extracted_contexts
+                if root_step.incremental and step.name == root_step.name:
+                    next_watermark = self._resolve_next_watermark(extracted_contexts, started_at)
 
             if root_step.incremental:
-                self.repository.save_watermark(tenant_id, workflow.entity_name, root_step.endpoint_path, last_success_at)
+                self.repository.save_watermark(tenant_id, workflow.entity_name, root_step.endpoint_path, next_watermark or started_at)
         except ExtractionStopped:
             status = "cancelled"
             self._log(
@@ -276,7 +333,7 @@ class WorkflowRunner:
                 request_count=counters.requests,
                 success_count=counters.inserted + counters.updated,
                 error_count=counters.errors,
-                watermark_to=last_success_at if status == "success" and root_step.incremental else None,
+                watermark_to=(next_watermark or started_at) if status == "success" and root_step.incremental else None,
                 details=details,
             )
             self._log(
@@ -297,6 +354,8 @@ class WorkflowRunner:
                 updated_count=counters.updated,
                 error_count=counters.errors,
             )
+            heartbeat_stop.set()
+            heartbeat_thread.join(timeout=1)
 
         return {
             "status": status,
@@ -318,6 +377,8 @@ class WorkflowRunner:
             return [{"path_params": {}, "payload": None, "record_id": None}]
 
         source_contexts = contexts_by_step.get(step.source_step, [])
+        if step.only_if_changed:
+            source_contexts = [context for context in source_contexts if context.get("source_changed")]
         if not step.nested_collection_keys:
             return source_contexts
 
@@ -349,8 +410,49 @@ class WorkflowRunner:
         counters: WorkflowCounters,
     ) -> list[dict[str, Any]]:
         discovered_contexts: list[dict[str, Any]] = []
-        for source_context in source_contexts:
+        total_source_contexts = len(source_contexts)
+        self._debug_state.update(
+            {
+                "entity": entity_name,
+                "step": step.name,
+                "sourceIndex": 0,
+                "sourceTotal": total_source_contexts,
+                "endpointPath": step.endpoint_path,
+            }
+        )
+        if entity_name == "contacts" and step.name == "contacts.detail" and total_source_contexts == 0:
+            self._log(
+                execution_id=execution_id,
+                sync_run_id=sync_run_id,
+                tenant_id=tenant_id,
+                entity_name=entity_name,
+                level="INFO",
+                stage=step.name,
+                message="Etapa contacts.detail sem registros alterados para detalhar.",
+            )
+            self._update_run_progress(
+                sync_run_id=sync_run_id,
+                counters=counters,
+                details={
+                    "currentStep": step.name,
+                    "currentEndpointPath": step.endpoint_path,
+                    "sourceContextsTotal": total_source_contexts,
+                    "sourceContextsProcessed": 0,
+                },
+            )
+        for source_index, source_context in enumerate(source_contexts):
             self._ensure_not_stopped(entity_name)
+            self._debug_state.update({"sourceIndex": source_index + 1, "sourceTotal": total_source_contexts})
+            if entity_name == "contacts" and step.name == "contacts.detail" and source_index > 0 and source_index % 250 == 0:
+                self._log(
+                    execution_id=execution_id,
+                    sync_run_id=sync_run_id,
+                    tenant_id=tenant_id,
+                    entity_name=entity_name,
+                    level="INFO",
+                    stage=step.name,
+                    message=f"Andamento de contacts.detail: processados={source_index}/{total_source_contexts}.",
+                )
             path_params = self._build_path_params(step, source_context)
             params = self._build_query_params(step, tenant_id, entity_name)
             endpoint_path = step.endpoint_path.format(**path_params)
@@ -375,6 +477,18 @@ class WorkflowRunner:
                         step=step,
                         counters=counters,
                     )
+                    self._update_run_progress(
+                        sync_run_id=sync_run_id,
+                        counters=counters,
+                        details={
+                            "currentStep": step.name,
+                            "currentEndpointPath": endpoint_path,
+                            "sourceContextsTotal": total_source_contexts,
+                            "sourceContextsProcessed": source_index + 1,
+                            "lastPageOffset": page_offset,
+                            "lastPageExtracted": len(page_contexts),
+                        },
+                    )
                     discovered_contexts.extend(page_contexts)
                     if not page_contexts or len(page_contexts) < page_limit:
                         break
@@ -394,6 +508,17 @@ class WorkflowRunner:
                 payload=payload,
                 step=step,
                 counters=counters,
+            )
+            self._update_run_progress(
+                sync_run_id=sync_run_id,
+                counters=counters,
+                details={
+                    "currentStep": step.name,
+                    "currentEndpointPath": endpoint_path,
+                    "sourceContextsTotal": total_source_contexts,
+                    "sourceContextsProcessed": source_index + 1,
+                    "lastPageExtracted": len(page_contexts),
+                },
             )
             discovered_contexts.extend(page_contexts)
         return discovered_contexts
@@ -460,10 +585,13 @@ class WorkflowRunner:
                         {"payload": record, "path_params": resolved_path_params or source_context.get("path_params") or {}},
                         step.record_id_keys,
                     ),
+                    "source_updated_at": None,
+                    "source_changed": False,
                 }
                 object_id = record_context["record_id"]
                 updated_at = extract_first_value(record_context, step.updated_at_keys or COMMON_UPDATED_AT_KEYS)
                 source_updated_at = parse_olist_datetime(updated_at)
+                record_context["source_updated_at"] = source_updated_at
                 external_key = build_external_key(
                     endpoint_path=endpoint_path,
                     path_params=record_context["path_params"],
@@ -486,6 +614,7 @@ class WorkflowRunner:
                     payload=record,
                     connection=connection,
                 )
+                record_context["source_changed"] = bool(upsert_result.inserted or upsert_result.updated)
                 counters.extracted += 1
                 counters.inserted += upsert_result.inserted
                 counters.updated += upsert_result.updated
@@ -509,6 +638,17 @@ class WorkflowRunner:
             updated_count=page_updated,
         )
         return page_contexts
+
+    @staticmethod
+    def _resolve_next_watermark(extracted_contexts: list[dict[str, Any]], started_at: datetime) -> datetime:
+        latest_seen: datetime | None = None
+        for context in extracted_contexts:
+            source_updated_at = context.get("source_updated_at")
+            if isinstance(source_updated_at, datetime) and (latest_seen is None or source_updated_at > latest_seen):
+                latest_seen = source_updated_at
+        if latest_seen is None:
+            return started_at
+        return latest_seen if latest_seen <= started_at else started_at
 
     def _log(
         self,
@@ -542,6 +682,73 @@ class WorkflowRunner:
         )
         log_method = self.logger.error if level.upper() == "ERROR" else self.logger.info
         log_method(message)
+
+    def _update_run_progress(
+        self,
+        *,
+        sync_run_id: str,
+        counters: WorkflowCounters,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self.repository.update_sync_run_progress(
+            sync_run_id=sync_run_id,
+            request_count=counters.requests,
+            success_count=counters.inserted + counters.updated,
+            error_count=counters.errors,
+            details={
+                "extractedCount": counters.extracted,
+                "insertedCount": counters.inserted,
+                "updatedCount": counters.updated,
+                **(details or {}),
+            },
+        )
+
+    def _debug_heartbeat_loop(
+        self,
+        *,
+        heartbeat_stop: threading.Event,
+        execution_id: str,
+        sync_run_id: str,
+        tenant_id: str,
+        entity_name: str,
+        counters: WorkflowCounters,
+    ) -> None:
+        while not heartbeat_stop.wait(30):
+            heartbeat_details = {
+                "currentStep": self._debug_state.get("step"),
+                "currentEndpointPath": self._debug_state.get("endpointPath"),
+                "sourceContextsProcessed": self._debug_state.get("sourceIndex"),
+                "sourceContextsTotal": self._debug_state.get("sourceTotal"),
+                "heartbeatAt": utc_now().isoformat(),
+                "extractedCount": counters.extracted,
+                "insertedCount": counters.inserted,
+                "updatedCount": counters.updated,
+            }
+            self.repository.update_sync_run_progress(
+                sync_run_id=sync_run_id,
+                request_count=counters.requests,
+                success_count=counters.inserted + counters.updated,
+                error_count=counters.errors,
+                details=heartbeat_details,
+            )
+            self._log(
+                execution_id=execution_id,
+                sync_run_id=sync_run_id,
+                tenant_id=tenant_id,
+                entity_name=entity_name,
+                level="INFO",
+                stage="heartbeat",
+                message=(
+                    f"Heartbeat da entidade {entity_name}: etapa={self._debug_state.get('step')}, "
+                    f"processados={self._debug_state.get('sourceIndex')}/{self._debug_state.get('sourceTotal')}, "
+                    f"requests={counters.requests}, extraidos={counters.extracted}, "
+                    f"inseridos={counters.inserted}, atualizados={counters.updated}, erros={counters.errors}."
+                ),
+                extracted_count=0,
+                inserted_count=0,
+                updated_count=0,
+                error_count=counters.errors,
+            )
 
     def _ensure_not_stopped(self, entity_name: str) -> None:
         if self.stop_requested():

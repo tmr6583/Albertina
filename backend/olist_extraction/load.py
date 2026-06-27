@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Generator
 from uuid import uuid4
 
+import requests
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
@@ -15,6 +16,9 @@ from .config import ExtractionSettings
 
 POSTGRES_PREFIXES = ("postgres://", "postgresql://")
 EXTRACTION_ADVISORY_LOCK_KEY = 48203172001
+OLIST_TOKEN_URL = "https://accounts.tiny.com.br/realms/tiny/protocol/openid-connect/token"
+ACCESS_TOKEN_FALLBACK_SECONDS = 4 * 60 * 60
+REFRESH_TOKEN_FALLBACK_SECONDS = 24 * 60 * 60
 
 
 def utc_now() -> datetime:
@@ -432,6 +436,38 @@ class ExtractionRepository:
                 },
             )
 
+    def update_sync_run_progress(
+        self,
+        *,
+        sync_run_id: str,
+        request_count: int,
+        success_count: int,
+        error_count: int,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        merged_details = details or {}
+        with self.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE olist_admin.sync_runs
+                    SET request_count = :request_count,
+                        success_count = :success_count,
+                        error_count = :error_count,
+                        details = COALESCE(details, '{}'::jsonb) || CAST(:details AS JSONB)
+                    WHERE sync_run_id = :sync_run_id
+                      AND status = 'running'
+                    """
+                ),
+                {
+                    "sync_run_id": sync_run_id,
+                    "request_count": request_count,
+                    "success_count": success_count,
+                    "error_count": error_count,
+                    "details": json.dumps(merged_details),
+                },
+            )
+
     def append_run_log(
         self,
         *,
@@ -704,7 +740,10 @@ class ExtractionRepository:
                     SELECT
                       execution_id,
                       MIN(started_at) AS started_at,
-                      MAX(finished_at) AS finished_at,
+                      CASE
+                        WHEN COUNT(*) FILTER (WHERE status = 'running') > 0 THEN NULL
+                        ELSE MAX(finished_at)
+                      END AS finished_at,
                       SUM(request_count) AS request_count,
                       SUM(success_count) AS success_count,
                       SUM(error_count) AS error_count,
@@ -730,7 +769,10 @@ class ExtractionRepository:
                     SELECT
                       execution_id,
                       MIN(started_at) AS started_at,
-                      MAX(finished_at) AS finished_at,
+                      CASE
+                        WHEN COUNT(*) FILTER (WHERE status = 'running') > 0 THEN NULL
+                        ELSE MAX(finished_at)
+                      END AS finished_at,
                       COUNT(*) AS entity_total,
                       COUNT(*) FILTER (WHERE status = 'success') AS entities_success,
                       COUNT(*) FILTER (WHERE status = 'cancelled') AS entities_cancelled,
@@ -846,3 +888,111 @@ class ExtractionRepository:
                 )
             ).mappings().first()
             return dict(row) if row else None
+
+    def renew_olist_access_token(self) -> dict[str, Any]:
+        settings = self.fetch_olist_settings() or {}
+        client_id = str(settings.get("client_id") or "").strip()
+        client_secret = str(settings.get("client_secret") or "").strip()
+        refresh_token = str(settings.get("refresh_token") or "").strip()
+
+        if not client_id or not client_secret:
+            raise RuntimeError("Client ID e Client Secret da Olist não estão configurados para renovar o token.")
+        if not refresh_token:
+            raise RuntimeError("Não existe refresh token persistido para renovar a sessão OAuth da Olist.")
+
+        try:
+            response = requests.post(
+                OLIST_TOKEN_URL,
+                data={
+                    "grant_type": "refresh_token",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "refresh_token": refresh_token,
+                },
+                headers={"Accept": "application/json"},
+                timeout=max(self.settings.timeout_seconds, 30),
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            detail = self._extract_olist_http_error(exc)
+            raise RuntimeError(f"Falha ao renovar o token OAuth da Olist: {detail}") from exc
+
+        try:
+            token_payload = response.json()
+        except ValueError as exc:
+            raise RuntimeError("A Olist retornou uma resposta inválida ao renovar o token OAuth.") from exc
+
+        access_token = str(token_payload.get("access_token") or "").strip()
+        if not access_token:
+            raise RuntimeError("A Olist não retornou um access_token ao renovar a sessão OAuth.")
+
+        new_refresh_token = str(token_payload.get("refresh_token") or refresh_token).strip()
+        now = utc_now()
+        access_token_expires_at = now + timedelta(
+            seconds=self._as_int(token_payload.get("expires_in"), ACCESS_TOKEN_FALLBACK_SECONDS)
+        )
+        refresh_token_expires_at = now + timedelta(
+            seconds=self._as_int(token_payload.get("refresh_expires_in"), REFRESH_TOKEN_FALLBACK_SECONDS)
+        )
+
+        with self.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE public.olist_settings
+                    SET access_token = :access_token,
+                        refresh_token = :refresh_token,
+                        access_token_expires_at = :access_token_expires_at,
+                        refresh_token_expires_at = :refresh_token_expires_at,
+                        token_type = :token_type,
+                        scope = :scope,
+                        status = :status,
+                        token_status = :token_status,
+                        message = :message,
+                        last_token_refresh_at = NOW(),
+                        updated_at = NOW()
+                    WHERE id = 'default'
+                    """
+                ),
+                {
+                    "access_token": access_token,
+                    "refresh_token": new_refresh_token,
+                    "access_token_expires_at": access_token_expires_at,
+                    "refresh_token_expires_at": refresh_token_expires_at,
+                    "token_type": str(token_payload.get("token_type") or settings.get("token_type") or "Bearer"),
+                    "scope": str(token_payload.get("scope") or settings.get("scope") or "openid"),
+                    "status": "Conectada",
+                    "token_status": "Token ativo",
+                    "message": "Token renovado automaticamente durante a extração Olist.",
+                },
+            )
+
+        refreshed = self.fetch_olist_settings()
+        if refreshed is None:
+            raise RuntimeError("Falha ao recarregar a configuração Olist após renovar o token.")
+        return refreshed
+
+    @staticmethod
+    def _as_int(value: Any, default: int) -> int:
+        try:
+            return int(value or default)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _extract_olist_http_error(exc: requests.RequestException) -> str:
+        response = getattr(exc, "response", None)
+        if response is not None:
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
+            if isinstance(payload, dict):
+                for key in ("error_description", "mensagem", "message", "error"):
+                    value = payload.get(key)
+                    if value:
+                        return str(value)
+            if response.text:
+                return response.text
+            return f"HTTP {response.status_code}"
+        return str(exc)

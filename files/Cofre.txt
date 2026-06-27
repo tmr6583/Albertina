@@ -19,3 +19,7 @@ Project Id: zbdgxbktblttarkradmk
 Project Region: sa-east-1
 CA Certificado: C:\GitHubLocal\Albertina\files\Certificado_Supabase_Albertina.crt
 Comando no terminal para conexão:  psql "postgresql://postgres:Esquilo08!!!@db.zbdgxbktblttarkradmk.supabase.co:6543/postgres?sslmode=require"
+
+## OLIST
+Login: thiago@betinalimpeza.com.br
+Senha: Esquilo08!!!
