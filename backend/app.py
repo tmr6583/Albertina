@@ -244,6 +244,29 @@ def normalize_timestamp(value: Any, fallback: str | None = None) -> str:
     return str(value)
 
 
+def format_duration_human(total_seconds: float | int | None) -> str:
+    if total_seconds is None:
+        return "--"
+    normalized_seconds = max(int(round(float(total_seconds))), 0)
+    hours = normalized_seconds // 3600
+    minutes = (normalized_seconds % 3600) // 60
+    seconds = normalized_seconds % 60
+    if hours > 0:
+        return f"{hours:02d}h {minutes:02d}m {seconds:02d}s"
+    if minutes > 0:
+        return f"{minutes:02d}m {seconds:02d}s"
+    return f"{seconds:02d}s"
+
+
+def build_duration_payload(started_at: Any, finished_at: Any) -> tuple[float | None, str]:
+    started_value = parse_timestamp(started_at)
+    finished_value = parse_timestamp(finished_at)
+    if started_value is None or finished_value is None:
+        return (None, "--")
+    duration_seconds = max((finished_value - started_value).total_seconds(), 0.0)
+    return (duration_seconds, format_duration_human(duration_seconds))
+
+
 def future_timestamp(seconds: int) -> datetime:
     return utc_now() + timedelta(seconds=seconds)
 
@@ -434,13 +457,54 @@ def format_connection_log(row: RowData) -> dict[str, Any]:
     }
 
 
+def _to_non_negative_int(value: Any) -> int:
+    try:
+        normalized = int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(normalized, 0)
+
+
+def normalize_extraction_run_details(details: Mapping[str, Any] | None) -> dict[str, Any]:
+    payload = dict(details or {})
+    source_contexts_processed = _to_non_negative_int(payload.get("sourceContextsProcessed"))
+    source_contexts_total = _to_non_negative_int(payload.get("sourceContextsTotal"))
+    source_contexts_remaining = max(source_contexts_total - source_contexts_processed, 0) if source_contexts_total > 0 else 0
+    extracted_count = _to_non_negative_int(payload.get("extractedCount"))
+    inserted_count = _to_non_negative_int(payload.get("insertedCount"))
+    updated_count = _to_non_negative_int(payload.get("updatedCount"))
+
+    payload.update(
+        {
+            "sourceContextsProcessed": source_contexts_processed,
+            "sourceContextsTotal": source_contexts_total,
+            "sourceContextsRemaining": source_contexts_remaining,
+            "extractedCount": extracted_count,
+            "insertedCount": inserted_count,
+            "updatedCount": updated_count,
+            "lineProgressLabel": (
+                f"{source_contexts_processed}/{source_contexts_total}"
+                if source_contexts_total > 0
+                else ("0/0" if source_contexts_processed == 0 else str(source_contexts_processed))
+            ),
+            "lineRemainingLabel": str(source_contexts_remaining) if source_contexts_total > 0 else "--",
+            "persistenceBreakdownLabel": f"{inserted_count} inseridas • {updated_count} atualizadas",
+        }
+    )
+    return payload
+
+
 def format_extraction_execution_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     runs = payload.get("runs") or []
     logs = payload.get("logs") or []
+    duration_seconds, duration_label = build_duration_payload(payload.get("started_at"), payload.get("finished_at"))
     return {
         "executionId": str(payload.get("execution_id")),
+        "executionType": str(payload.get("execution_type") or "incremental"),
         "startedAt": normalize_timestamp(payload.get("started_at"), fallback="Nao iniciado"),
         "finishedAt": normalize_timestamp(payload.get("finished_at"), fallback="Em andamento"),
+        "durationSeconds": duration_seconds,
+        "durationLabel": duration_label,
         "requestCount": int(payload.get("request_count") or 0),
         "successCount": int(payload.get("success_count") or 0),
         "errorCount": int(payload.get("error_count") or 0),
@@ -455,12 +519,15 @@ def format_extraction_execution_payload(payload: Mapping[str, Any]) -> dict[str,
                 "entityName": item.get("entity_name"),
                 "status": item.get("status"),
                 "syncMode": item.get("sync_mode"),
+                "executionType": item.get("execution_type"),
                 "startedAt": normalize_timestamp(item.get("started_at"), fallback="Nao iniciado"),
                 "finishedAt": normalize_timestamp(item.get("finished_at"), fallback="Em andamento"),
+                "durationSeconds": build_duration_payload(item.get("started_at"), item.get("finished_at"))[0],
+                "durationLabel": build_duration_payload(item.get("started_at"), item.get("finished_at"))[1],
                 "requestCount": int(item.get("request_count") or 0),
                 "successCount": int(item.get("success_count") or 0),
                 "errorCount": int(item.get("error_count") or 0),
-                "details": item.get("details") or {},
+                "details": normalize_extraction_run_details(item.get("details") or {}),
             }
             for item in runs
         ],
@@ -994,6 +1061,10 @@ class OlistCallbackPayload(BaseModel):
     state: str | None = None
     error: str | None = None
     error_description: str | None = None
+
+
+class ExtractionRunPayload(BaseModel):
+    executionType: str = "incremental"
 
 
 class UserResponse(BaseModel):
@@ -1977,8 +2048,11 @@ def extraction_overview(current_user: RowData = Depends(get_current_user)) -> di
     recent_executions = [
         {
             "executionId": str(item.get("execution_id")),
+            "executionType": str(item.get("execution_type") or "incremental"),
             "startedAt": normalize_timestamp(item.get("started_at"), fallback="Nao iniciado"),
             "finishedAt": normalize_timestamp(item.get("finished_at"), fallback="Em andamento"),
+            "durationSeconds": build_duration_payload(item.get("started_at"), item.get("finished_at"))[0],
+            "durationLabel": build_duration_payload(item.get("started_at"), item.get("finished_at"))[1],
             "entityTotal": int(item.get("entity_total") or 0),
             "entitiesSuccess": int(item.get("entities_success") or 0),
             "entitiesCancelled": int(item.get("entities_cancelled") or 0),
@@ -1997,6 +2071,7 @@ def extraction_overview(current_user: RowData = Depends(get_current_user)) -> di
         "activeExecutionId": payload.get("activeExecutionId"),
         "tenantId": payload.get("tenantId"),
         "supportedEntities": payload.get("supportedEntities", []),
+        "supportedExecutionTypes": ["incremental", "reconciliation"],
         "olist": payload.get("olist", {}),
         "recentExecutions": recent_executions,
         "activeExecution": (
@@ -2008,11 +2083,24 @@ def extraction_overview(current_user: RowData = Depends(get_current_user)) -> di
 
 
 @app.post("/api/extraction/run")
-def start_extraction(current_user: RowData = Depends(get_current_user)) -> dict[str, Any]:
+def start_extraction(
+    payload: ExtractionRunPayload | None = None,
+    current_user: RowData = Depends(get_current_user),
+) -> dict[str, Any]:
     actor_email = str(row_value(current_user, "email"))
     actor_id = str(row_value(current_user, "id"))
+    execution_type = str(payload.executionType if payload else "incremental").strip().lower()
+    if execution_type not in {"incremental", "reconciliation"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="O tipo de execução deve ser incremental ou reconciliation.",
+        )
     try:
-        response = extraction_service.start_full_sync(user_id=actor_id, actor_email=actor_email)
+        response = extraction_service.start_execution(
+            user_id=actor_id,
+            actor_email=actor_email,
+            execution_type=execution_type,
+        )
     except RuntimeError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
 
@@ -2021,7 +2109,7 @@ def start_extraction(current_user: RowData = Depends(get_current_user)) -> dict[
             append_audit(
                 db=db,
                 title="Execucao de extracao solicitada",
-                description=f"O usuario {actor_email} solicitou a sincronizacao completa da API Olist.",
+                description=f"O usuario {actor_email} solicitou a execucao {execution_type} da sincronizacao Olist.",
                 tone="accent",
             )
     return response

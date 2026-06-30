@@ -1,0 +1,1107 @@
+Albertina - Log da Execução de Extração
+Execução: 2fb771d0-cb6d-4a38-b90a-4666e0e340cf
+Início: 29/06/2026 12:35:43
+Fim: 30/06/2026 03:35:11
+Requisições: 49354
+Persistências: 27174
+Erros: ##!!## 2 ##!!##
+Entidades previstas: 27
+Entidades com sucesso: 25
+Entidades interrompidas: 0
+Entidades com erro: 2
+
+Entidades processadas
+--------------------
+1. company_info
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:35:43
+   Fim: 29/06/2026 12:35:44
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+2. users
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:35:44
+   Fim: 29/06/2026 12:35:46
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+3. vendors
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:35:46
+   Fim: 29/06/2026 12:35:47
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+4. brands
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:35:47
+   Fim: 29/06/2026 12:35:48
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+5. categories
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:35:48
+   Fim: 29/06/2026 12:35:48
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+6. revenue_expense_categories
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:35:49
+   Fim: 29/06/2026 12:35:52
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+7. contacts
+   Status: Concluída
+   Modo: incremental
+   Início: 29/06/2026 12:35:52
+   Fim: 29/06/2026 12:35:54
+   Requisições: 2
+   Persistências: 0
+   Erros: 0
+
+8. payment_methods
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:35:54
+   Fim: 29/06/2026 12:36:02
+   Requisições: 11
+   Persistências: 0
+   Erros: 0
+
+9. receipt_methods
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:36:02
+   Fim: 29/06/2026 12:36:09
+   Requisições: 11
+   Persistências: 0
+   Erros: 0
+
+10. shipping_methods
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:36:09
+   Fim: 29/06/2026 12:36:11
+   Requisições: 4
+   Persistências: 0
+   Erros: 0
+
+11. deposits
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:36:12
+   Fim: 29/06/2026 12:36:13
+   Requisições: 2
+   Persistências: 0
+   Erros: 0
+
+12. intermediators
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:36:13
+   Fim: 29/06/2026 12:36:14
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+13. price_lists
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:36:14
+   Fim: 29/06/2026 12:36:15
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+14. services
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:36:15
+   Fim: 29/06/2026 12:36:16
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+15. tag_groups
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:36:16
+   Fim: 29/06/2026 12:36:16
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+16. product_tags
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 12:36:17
+   Fim: 29/06/2026 12:36:17
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+17. products
+   Status: Com erro
+   Modo: incremental
+   Início: 29/06/2026 12:36:18
+   Fim: 29/06/2026 13:50:25
+   Requisições: 2031
+   Persistências: 1
+   Erros: ##!!## 1 ##!!##
+
+18. orders
+   Status: Com erro
+   Modo: incremental
+   Início: 29/06/2026 13:50:25
+   Fim: 29/06/2026 13:50:28
+   Requisições: 0
+   Persistências: 0
+   Erros: ##!!## 1 ##!!##
+
+19. accounts_receivable
+   Status: Concluída
+   Modo: incremental
+   Início: 29/06/2026 13:50:28
+   Fim: 29/06/2026 16:36:20
+   Requisições: 9043
+   Persistências: 2904
+   Erros: 0
+
+20. accounts_payable
+   Status: Concluída
+   Modo: incremental
+   Início: 29/06/2026 16:36:20
+   Fim: 29/06/2026 18:14:03
+   Requisições: 5346
+   Persistências: 1665
+   Erros: 0
+
+21. invoices
+   Status: Concluída
+   Modo: full
+   Início: 29/06/2026 18:14:03
+   Fim: 30/06/2026 03:28:27
+   Requisições: 32494
+   Persistências: 22604
+   Erros: 0
+
+22. shipments
+   Status: Concluída
+   Modo: full
+   Início: 30/06/2026 03:28:27
+   Fim: 30/06/2026 03:28:28
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+23. separations
+   Status: Concluída
+   Modo: full
+   Início: 30/06/2026 03:28:28
+   Fim: 30/06/2026 03:28:29
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+24. crm_stages
+   Status: Concluída
+   Modo: full
+   Início: 30/06/2026 03:28:29
+   Fim: 30/06/2026 03:28:33
+   Requisições: 6
+   Persistências: 0
+   Erros: 0
+
+25. crm_subjects
+   Status: Concluída
+   Modo: incremental
+   Início: 30/06/2026 03:28:33
+   Fim: 30/06/2026 03:29:07
+   Requisições: 38
+   Persistências: 0
+   Erros: 0
+
+26. purchase_orders
+   Status: Concluída
+   Modo: full
+   Início: 30/06/2026 03:29:07
+   Fim: 30/06/2026 03:35:10
+   Requisições: 352
+   Persistências: 0
+   Erros: 0
+
+27. service_orders
+   Status: Concluída
+   Modo: incremental
+   Início: 30/06/2026 03:35:10
+   Fim: 30/06/2026 03:35:11
+   Requisições: 1
+   Persistências: 0
+   Erros: 0
+
+
+Eventos do log
+---------------
+1. 29/06/2026 13:50:25 | ERROR | products | workflow
+   Mensagem: Falha na entidade products.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: ##!!## 1 ##!!##
+   ##!!## ERRO DETECTADO ##!!##
+   Detalhe técnico:
+Traceback (most recent call last):
+  File "c:\GitHubLocal\Albertina\backend\olist_extraction\extract.py", line 365, in run_workflow
+    extracted_contexts = self._execute_step(
+                         ^^^^^^^^^^^^^^^^^^^
+  File "c:\GitHubLocal\Albertina\backend\olist_extraction\extract.py", line 599, in _execute_step
+    payload, _ = self.client.request_json(endpoint_path, params or None)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\GitHubLocal\Albertina\backend\olist_extraction\extract.py", line 148, in request_json
+    response.raise_for_status()
+  File "C:\Program Files\Python312\Lib\site-packages\requests\models.py", line 1024, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 400 Client Error: Bad Request for url: https://api.tiny.com.br/public-api/v3/produtos/889711675/kit
+
+
+2. 29/06/2026 13:50:25 | ERROR | products | workflow
+   Mensagem: Fim da entidade products. Extraidos=3030, inseridos=0, atualizados=1, tempo_total=4447.24s.
+   Extraídos: 3030 | Inseridos: 0 | Atualizados: 1 | Erros: ##!!## 1 ##!!##
+   ##!!## ERRO DETECTADO ##!!##
+
+3. 29/06/2026 13:50:28 | ERROR | orders | workflow
+   Mensagem: Falha na entidade orders.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: ##!!## 1 ##!!##
+   ##!!## ERRO DETECTADO ##!!##
+   Detalhe técnico:
+Traceback (most recent call last):
+  File "c:\GitHubLocal\Albertina\backend\olist_extraction\extract.py", line 365, in run_workflow
+    extracted_contexts = self._execute_step(
+                         ^^^^^^^^^^^^^^^^^^^
+  File "c:\GitHubLocal\Albertina\backend\olist_extraction\extract.py", line 554, in _execute_step
+    payload, _ = self.client.request_json(endpoint_path, paged_params)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\GitHubLocal\Albertina\backend\olist_extraction\extract.py", line 148, in request_json
+    response.raise_for_status()
+  File "C:\Program Files\Python312\Lib\site-packages\requests\models.py", line 1024, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 400 Client Error: Bad Request for url: https://api.tiny.com.br/public-api/v3/pedidos?dataAtualizacao=2026-06-28+06%3A14%3A13&limit=100&offset=0
+
+
+4. 29/06/2026 13:50:28 | ERROR | orders | workflow
+   Mensagem: Fim da entidade orders. Extraidos=0, inseridos=0, atualizados=0, tempo_total=2.50s.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: ##!!## 1 ##!!##
+   ##!!## ERRO DETECTADO ##!!##
+
+5. 30/06/2026 03:31:36 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/918410669. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+6. 30/06/2026 03:31:37 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/918409211. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+7. 30/06/2026 03:31:37 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/918002346. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+8. 30/06/2026 03:31:38 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/917945908. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+9. 30/06/2026 03:31:38 | INFO | purchase_orders | heartbeat
+   Mensagem: Heartbeat da entidade purchase_orders: etapa=purchase_orders.detail, processados=167/175, requests=168, extraidos=341, inseridos=0, atualizados=0, erros=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+10. 30/06/2026 03:31:38 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/917926146. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+11. 30/06/2026 03:31:39 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/917205226. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+12. 30/06/2026 03:32:08 | INFO | purchase_orders | heartbeat
+   Mensagem: Heartbeat da entidade purchase_orders: etapa=purchase_orders.detail, processados=169/175, requests=170, extraidos=343, inseridos=0, atualizados=0, erros=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+13. 30/06/2026 03:32:11 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/917204469. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+14. 30/06/2026 03:32:12 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/917166469. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+15. 30/06/2026 03:32:13 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/917150318. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+16. 30/06/2026 03:32:13 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/916904260. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+17. 30/06/2026 03:32:14 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/916897706. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+18. 30/06/2026 03:32:15 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/916858453. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+19. 30/06/2026 03:32:15 | INFO | purchase_orders | purchase_orders.detail
+   Mensagem: Etapa purchase_orders.detail concluida em /ordem-compra/916773137. Extraidos=1, inseridos=0, atualizados=0.
+   Extraídos: 1 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+20. 30/06/2026 03:32:16 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/937327075/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+21. 30/06/2026 03:32:17 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/937111435/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+22. 30/06/2026 03:32:17 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936842795/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+23. 30/06/2026 03:32:18 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936728614/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+24. 30/06/2026 03:32:19 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936723750/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+25. 30/06/2026 03:32:19 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936388227/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+26. 30/06/2026 03:32:20 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936387750/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+27. 30/06/2026 03:32:20 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936271712/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+28. 30/06/2026 03:32:21 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936263837/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+29. 30/06/2026 03:32:22 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936263781/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+30. 30/06/2026 03:32:23 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936263645/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+31. 30/06/2026 03:32:23 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/936160795/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+32. 30/06/2026 03:32:24 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/935996121/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+33. 30/06/2026 03:32:24 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/935995842/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+34. 30/06/2026 03:32:25 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/935994575/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+35. 30/06/2026 03:32:26 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/935564217/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+36. 30/06/2026 03:32:26 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/935535074/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+37. 30/06/2026 03:32:27 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/935274976/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+38. 30/06/2026 03:32:27 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/935009597/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+39. 30/06/2026 03:32:28 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/935009307/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+40. 30/06/2026 03:32:29 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/935009126/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+41. 30/06/2026 03:32:29 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/934799919/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+42. 30/06/2026 03:32:30 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/934522859/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+43. 30/06/2026 03:32:31 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/934501188/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+44. 30/06/2026 03:32:31 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/934501048/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+45. 30/06/2026 03:32:32 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/934011983/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+46. 30/06/2026 03:32:32 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/934010519/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+47. 30/06/2026 03:32:33 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/933938946/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+48. 30/06/2026 03:32:33 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/933757509/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+49. 30/06/2026 03:32:34 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/933751805/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+50. 30/06/2026 03:32:35 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/933741266/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+51. 30/06/2026 03:32:35 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/933508625/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+52. 30/06/2026 03:32:36 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/933011856/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+53. 30/06/2026 03:32:36 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/932759704/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+54. 30/06/2026 03:32:37 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/932759581/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+55. 30/06/2026 03:32:38 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/932632870/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+56. 30/06/2026 03:32:38 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/932520635/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+57. 30/06/2026 03:32:38 | INFO | purchase_orders | heartbeat
+   Mensagem: Heartbeat da entidade purchase_orders: etapa=purchase_orders.markers, processados=38/175, requests=214, extraidos=350, inseridos=0, atualizados=0, erros=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+58. 30/06/2026 03:32:40 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/932518101/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+59. 30/06/2026 03:32:40 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/932365832/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+60. 30/06/2026 03:32:41 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/932257911/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+61. 30/06/2026 03:32:41 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/932242093/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+62. 30/06/2026 03:32:42 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/932241955/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+63. 30/06/2026 03:32:43 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931841655/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+64. 30/06/2026 03:32:43 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931470922/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+65. 30/06/2026 03:32:44 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931443487/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+66. 30/06/2026 03:32:44 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931438557/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+67. 30/06/2026 03:32:45 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931438163/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+68. 30/06/2026 03:32:45 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931438037/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+69. 30/06/2026 03:32:46 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931437979/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+70. 30/06/2026 03:32:46 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931437913/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+71. 30/06/2026 03:32:47 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931436222/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+72. 30/06/2026 03:32:48 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931433214/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+73. 30/06/2026 03:32:48 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931433052/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+74. 30/06/2026 03:33:07 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931432928/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+75. 30/06/2026 03:33:08 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/931118109/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+76. 30/06/2026 03:33:09 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/930514697/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+77. 30/06/2026 03:33:09 | INFO | purchase_orders | heartbeat
+   Mensagem: Heartbeat da entidade purchase_orders: etapa=purchase_orders.markers, processados=56/175, requests=233, extraidos=350, inseridos=0, atualizados=0, erros=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+78. 30/06/2026 03:33:09 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/930498732/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+79. 30/06/2026 03:33:10 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/930488512/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+80. 30/06/2026 03:33:10 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/930279156/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+81. 30/06/2026 03:33:11 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/929859325/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+82. 30/06/2026 03:33:12 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/929677040/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+83. 30/06/2026 03:33:12 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/929583177/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+84. 30/06/2026 03:33:13 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/929323765/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+85. 30/06/2026 03:33:13 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/929323669/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+86. 30/06/2026 03:33:14 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/929323490/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+87. 30/06/2026 03:33:15 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928794950/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+88. 30/06/2026 03:33:15 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928670719/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+89. 30/06/2026 03:33:16 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928573057/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+90. 30/06/2026 03:33:16 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928546093/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+91. 30/06/2026 03:33:17 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928535613/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+92. 30/06/2026 03:33:18 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928193863/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+93. 30/06/2026 03:33:18 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928193433/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+94. 30/06/2026 03:33:19 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928086265/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+95. 30/06/2026 03:33:20 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928086179/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+96. 30/06/2026 03:33:20 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928086090/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+97. 30/06/2026 03:33:21 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/928085963/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+98. 30/06/2026 03:33:22 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/927941284/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+99. 30/06/2026 03:33:22 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/927332629/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+100. 30/06/2026 03:33:23 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/927332522/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+101. 30/06/2026 03:33:23 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/927332400/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+102. 30/06/2026 03:33:24 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/927224773/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+103. 30/06/2026 03:33:25 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/927108259/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+104. 30/06/2026 03:33:25 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/926766975/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+105. 30/06/2026 03:33:26 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/926627542/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+106. 30/06/2026 03:33:26 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/926610603/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+107. 30/06/2026 03:33:27 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/926609478/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+108. 30/06/2026 03:33:28 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/926496208/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+109. 30/06/2026 03:33:28 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/926494438/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+110. 30/06/2026 03:33:29 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925956928/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+111. 30/06/2026 03:33:29 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925844895/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+112. 30/06/2026 03:33:30 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925705129/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+113. 30/06/2026 03:33:30 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925704892/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+114. 30/06/2026 03:33:31 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925704800/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+115. 30/06/2026 03:33:32 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925704648/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+116. 30/06/2026 03:33:32 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925704477/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+117. 30/06/2026 03:33:33 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925243717/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+118. 30/06/2026 03:33:33 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925181866/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+119. 30/06/2026 03:33:34 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925143953/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+120. 30/06/2026 03:33:34 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/925138914/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+121. 30/06/2026 03:33:35 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/924867435/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+122. 30/06/2026 03:33:35 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/924866413/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+123. 30/06/2026 03:33:36 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/924865367/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+124. 30/06/2026 03:33:37 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/924754404/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+125. 30/06/2026 03:33:37 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/924754318/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+126. 30/06/2026 03:33:38 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/924349071/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+127. 30/06/2026 03:33:38 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/924348924/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+128. 30/06/2026 03:33:39 | INFO | purchase_orders | heartbeat
+   Mensagem: Heartbeat da entidade purchase_orders: etapa=purchase_orders.markers, processados=107/175, requests=283, extraidos=350, inseridos=0, atualizados=0, erros=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+129. 30/06/2026 03:33:39 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/924348890/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+130. 30/06/2026 03:33:39 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/924180061/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+131. 30/06/2026 03:33:40 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/923908228/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+132. 30/06/2026 03:33:41 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/923549467/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+133. 30/06/2026 03:33:41 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/923545083/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+134. 30/06/2026 03:33:42 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/923073772/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+135. 30/06/2026 03:33:42 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/923054557/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+136. 30/06/2026 03:34:00 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922856879/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+137. 30/06/2026 03:34:01 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922856848/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+138. 30/06/2026 03:34:02 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922838642/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+139. 30/06/2026 03:34:03 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922828976/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+140. 30/06/2026 03:34:03 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922713254/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+141. 30/06/2026 03:34:04 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922712983/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+142. 30/06/2026 03:34:05 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922562281/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+143. 30/06/2026 03:34:05 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922178198/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+144. 30/06/2026 03:34:06 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922174413/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+145. 30/06/2026 03:34:06 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922166275/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+146. 30/06/2026 03:34:07 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/922072165/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+147. 30/06/2026 03:34:08 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921892012/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+148. 30/06/2026 03:34:08 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921891717/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+149. 30/06/2026 03:34:09 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921891460/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+150. 30/06/2026 03:34:09 | INFO | purchase_orders | heartbeat
+   Mensagem: Heartbeat da entidade purchase_orders: etapa=purchase_orders.markers, processados=127/175, requests=304, extraidos=350, inseridos=0, atualizados=0, erros=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+151. 30/06/2026 03:34:10 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921891029/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+152. 30/06/2026 03:34:10 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921736905/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+153. 30/06/2026 03:34:11 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921729989/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+154. 30/06/2026 03:34:11 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921726256/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+155. 30/06/2026 03:34:12 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921726054/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+156. 30/06/2026 03:34:13 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921723624/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+157. 30/06/2026 03:34:13 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921432611/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+158. 30/06/2026 03:34:14 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921431070/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+159. 30/06/2026 03:34:15 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921216946/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+160. 30/06/2026 03:34:15 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/921216822/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+161. 30/06/2026 03:34:16 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/920655033/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+162. 30/06/2026 03:34:16 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/920549901/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+163. 30/06/2026 03:34:17 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/920251447/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+164. 30/06/2026 03:34:18 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/920250267/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+165. 30/06/2026 03:34:18 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/920140464/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+166. 30/06/2026 03:34:19 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/920117555/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+167. 30/06/2026 03:34:19 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/920117072/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+168. 30/06/2026 03:34:20 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/920116850/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+169. 30/06/2026 03:34:21 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/920115485/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+170. 30/06/2026 03:34:21 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/919732905/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+171. 30/06/2026 03:34:22 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/919419324/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+172. 30/06/2026 03:34:22 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/919404445/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+173. 30/06/2026 03:34:23 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/919289370/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+174. 30/06/2026 03:34:24 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/919284501/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+175. 30/06/2026 03:34:24 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/919279496/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+176. 30/06/2026 03:34:25 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918728022/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+177. 30/06/2026 03:34:25 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918718979/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+178. 30/06/2026 03:34:26 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918718849/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+179. 30/06/2026 03:34:27 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918550361/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+180. 30/06/2026 03:34:27 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918458216/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+181. 30/06/2026 03:34:28 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918457982/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+182. 30/06/2026 03:34:28 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918457897/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+183. 30/06/2026 03:34:29 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918430268/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+184. 30/06/2026 03:34:30 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918416525/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+185. 30/06/2026 03:34:30 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918413454/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+186. 30/06/2026 03:34:31 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918410669/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+187. 30/06/2026 03:34:31 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918409211/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+188. 30/06/2026 03:34:32 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/918002346/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+189. 30/06/2026 03:34:33 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/917945908/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+190. 30/06/2026 03:34:33 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/917926146/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+191. 30/06/2026 03:34:34 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/917205226/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+192. 30/06/2026 03:34:34 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/917204469/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+193. 30/06/2026 03:34:35 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/917166469/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+194. 30/06/2026 03:34:36 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/917150318/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+195. 30/06/2026 03:34:36 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/916904260/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+196. 30/06/2026 03:34:37 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/916897706/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+197. 30/06/2026 03:34:39 | INFO | purchase_orders | heartbeat
+   Mensagem: Heartbeat da entidade purchase_orders: etapa=purchase_orders.markers, processados=174/175, requests=350, extraidos=350, inseridos=0, atualizados=0, erros=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+198. 30/06/2026 03:35:09 | INFO | purchase_orders | heartbeat
+   Mensagem: Heartbeat da entidade purchase_orders: etapa=purchase_orders.markers, processados=174/175, requests=350, extraidos=350, inseridos=0, atualizados=0, erros=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+199. 30/06/2026 03:35:09 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/916858453/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+200. 30/06/2026 03:35:10 | INFO | purchase_orders | purchase_orders.markers
+   Mensagem: Etapa purchase_orders.markers concluida em /ordem-compra/916773137/marcadores. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+201. 30/06/2026 03:35:10 | INFO | purchase_orders | workflow
+   Mensagem: Fim da entidade purchase_orders. Extraidos=350, inseridos=0, atualizados=0, tempo_total=362.48s.
+   Extraídos: 350 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+202. 30/06/2026 03:35:10 | INFO | service_orders | workflow
+   Mensagem: Iniciando extração da entidade service_orders.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+203. 30/06/2026 03:35:11 | INFO | service_orders | service_orders.list
+   Mensagem: Etapa service_orders.list concluida em /ordem-servico. Extraidos=0, inseridos=0, atualizados=0.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0
+
+204. 30/06/2026 03:35:11 | INFO | service_orders | workflow
+   Mensagem: Fim da entidade service_orders. Extraidos=0, inseridos=0, atualizados=0, tempo_total=0.82s.
+   Extraídos: 0 | Inseridos: 0 | Atualizados: 0 | Erros: 0

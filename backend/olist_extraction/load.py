@@ -141,6 +141,7 @@ class ExtractionRepository:
             CREATE TABLE IF NOT EXISTS olist_admin.sync_runs (
               sync_run_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
               execution_id UUID NULL,
+              execution_type TEXT NOT NULL DEFAULT 'incremental',
               tenant_id UUID NOT NULL REFERENCES olist_admin.tenants(tenant_id) ON DELETE CASCADE,
               entity_name TEXT NOT NULL,
               endpoint_path TEXT NOT NULL,
@@ -160,6 +161,7 @@ class ExtractionRepository:
             )
             """,
             "ALTER TABLE olist_admin.sync_runs ADD COLUMN IF NOT EXISTS execution_id UUID NULL",
+            "ALTER TABLE olist_admin.sync_runs ADD COLUMN IF NOT EXISTS execution_type TEXT NOT NULL DEFAULT 'incremental'",
             """
             CREATE TABLE IF NOT EXISTS olist_admin.sync_watermarks (
               tenant_id UUID NOT NULL REFERENCES olist_admin.tenants(tenant_id) ON DELETE CASCADE,
@@ -204,11 +206,21 @@ class ExtractionRepository:
               extracted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
               sync_run_id UUID NULL REFERENCES olist_admin.sync_runs(sync_run_id) ON DELETE SET NULL,
               payload_hash TEXT NULL,
+              source_status TEXT NULL,
+              is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+              deleted_at TIMESTAMPTZ NULL,
+              last_seen_at TIMESTAMPTZ NULL,
+              last_seen_execution_id UUID NULL,
               payload JSONB NOT NULL,
               created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
             """,
             "ALTER TABLE olist_raw.api_payloads ADD COLUMN IF NOT EXISTS external_key TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE olist_raw.api_payloads ADD COLUMN IF NOT EXISTS source_status TEXT NULL",
+            "ALTER TABLE olist_raw.api_payloads ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE olist_raw.api_payloads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL",
+            "ALTER TABLE olist_raw.api_payloads ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NULL",
+            "ALTER TABLE olist_raw.api_payloads ADD COLUMN IF NOT EXISTS last_seen_execution_id UUID NULL",
             """
             UPDATE olist_raw.api_payloads
             SET external_key = COALESCE(NULLIF(external_key, ''), CONCAT(endpoint_path, '|', COALESCE(olist_object_id::TEXT, 'singleton')))
@@ -218,6 +230,8 @@ class ExtractionRepository:
             CREATE UNIQUE INDEX IF NOT EXISTS uq_api_payloads_external_key
             ON olist_raw.api_payloads (tenant_id, entity_name, endpoint_path, external_key)
             """,
+            "CREATE INDEX IF NOT EXISTS idx_api_payloads_entity_seen ON olist_raw.api_payloads (tenant_id, entity_name, last_seen_execution_id)",
+            "CREATE INDEX IF NOT EXISTS idx_api_payloads_deleted ON olist_raw.api_payloads (tenant_id, entity_name, is_deleted)",
             "CREATE INDEX IF NOT EXISTS idx_sync_runs_execution_id ON olist_admin.sync_runs (execution_id, started_at DESC)",
             "CREATE INDEX IF NOT EXISTS idx_sync_run_logs_execution_id ON olist_admin.sync_run_logs (execution_id, created_at ASC)",
         ]
@@ -353,6 +367,7 @@ class ExtractionRepository:
         self,
         *,
         execution_id: str,
+        execution_type: str,
         tenant_id: str,
         entity_name: str,
         endpoint_path: str,
@@ -366,6 +381,7 @@ class ExtractionRepository:
                     """
                     INSERT INTO olist_admin.sync_runs (
                       execution_id,
+                      execution_type,
                       tenant_id,
                       entity_name,
                       endpoint_path,
@@ -376,6 +392,7 @@ class ExtractionRepository:
                     )
                     VALUES (
                       :execution_id,
+                      :execution_type,
                       :tenant_id,
                       :entity_name,
                       :endpoint_path,
@@ -389,6 +406,7 @@ class ExtractionRepository:
                 ),
                 {
                     "execution_id": execution_id,
+                    "execution_type": execution_type,
                     "tenant_id": tenant_id,
                     "entity_name": entity_name,
                     "endpoint_path": endpoint_path,
@@ -595,6 +613,7 @@ class ExtractionRepository:
     def upsert_raw_payload(
         self,
         *,
+        execution_id: str,
         tenant_id: str,
         entity_name: str,
         endpoint_path: str,
@@ -602,6 +621,7 @@ class ExtractionRepository:
         olist_object_id: int | None,
         parent_olist_object_id: int | None,
         source_updated_at: datetime | None,
+        source_status: str | None,
         sync_run_id: str,
         payload_hash_value: str,
         payload: dict[str, Any] | list[Any] | str | int | float | bool | None,
@@ -610,6 +630,7 @@ class ExtractionRepository:
         if connection is not None:
             return self._upsert_raw_payload_on_connection(
                 connection=connection,
+                execution_id=execution_id,
                 tenant_id=tenant_id,
                 entity_name=entity_name,
                 endpoint_path=endpoint_path,
@@ -617,6 +638,7 @@ class ExtractionRepository:
                 olist_object_id=olist_object_id,
                 parent_olist_object_id=parent_olist_object_id,
                 source_updated_at=source_updated_at,
+                source_status=source_status,
                 sync_run_id=sync_run_id,
                 payload_hash_value=payload_hash_value,
                 payload=payload,
@@ -625,6 +647,7 @@ class ExtractionRepository:
         with self.begin() as current_connection:
             return self._upsert_raw_payload_on_connection(
                 connection=current_connection,
+                execution_id=execution_id,
                 tenant_id=tenant_id,
                 entity_name=entity_name,
                 endpoint_path=endpoint_path,
@@ -632,6 +655,7 @@ class ExtractionRepository:
                 olist_object_id=olist_object_id,
                 parent_olist_object_id=parent_olist_object_id,
                 source_updated_at=source_updated_at,
+                source_status=source_status,
                 sync_run_id=sync_run_id,
                 payload_hash_value=payload_hash_value,
                 payload=payload,
@@ -641,6 +665,7 @@ class ExtractionRepository:
         self,
         *,
         connection: Any,
+        execution_id: str,
         tenant_id: str,
         entity_name: str,
         endpoint_path: str,
@@ -648,6 +673,7 @@ class ExtractionRepository:
         olist_object_id: int | None,
         parent_olist_object_id: int | None,
         source_updated_at: datetime | None,
+        source_status: str | None,
         sync_run_id: str,
         payload_hash_value: str,
         payload: dict[str, Any] | list[Any] | str | int | float | bool | None,
@@ -686,6 +712,11 @@ class ExtractionRepository:
                   extracted_at,
                   sync_run_id,
                   payload_hash,
+                  source_status,
+                  is_deleted,
+                  deleted_at,
+                  last_seen_at,
+                  last_seen_execution_id,
                   payload
                 )
                 VALUES (
@@ -700,6 +731,11 @@ class ExtractionRepository:
                   NOW(),
                   :sync_run_id,
                   :payload_hash,
+                  :source_status,
+                  FALSE,
+                  NULL,
+                  NOW(),
+                  :last_seen_execution_id,
                   CAST(:payload AS JSONB)
                 )
                 ON CONFLICT (tenant_id, entity_name, endpoint_path, external_key) DO UPDATE
@@ -709,6 +745,11 @@ class ExtractionRepository:
                     extracted_at = EXCLUDED.extracted_at,
                     sync_run_id = EXCLUDED.sync_run_id,
                     payload_hash = EXCLUDED.payload_hash,
+                    source_status = EXCLUDED.source_status,
+                    is_deleted = FALSE,
+                    deleted_at = NULL,
+                    last_seen_at = EXCLUDED.last_seen_at,
+                    last_seen_execution_id = EXCLUDED.last_seen_execution_id,
                     payload = EXCLUDED.payload
                 """
             ),
@@ -722,6 +763,8 @@ class ExtractionRepository:
                 "source_updated_at": source_updated_at,
                 "sync_run_id": sync_run_id,
                 "payload_hash": payload_hash_value,
+                "source_status": source_status,
+                "last_seen_execution_id": execution_id,
                 "payload": json.dumps(payload, default=str),
             },
         )
@@ -732,6 +775,33 @@ class ExtractionRepository:
             return UpsertResult(inserted=0, updated=1)
         return UpsertResult(inserted=0, updated=0)
 
+    def reconcile_entity_deletions(self, *, execution_id: str, tenant_id: str, entity_name: str) -> int:
+        with self.begin() as connection:
+            row = connection.execute(
+                text(
+                    """
+                    WITH reconciled AS (
+                      UPDATE olist_raw.api_payloads
+                      SET is_deleted = TRUE,
+                          deleted_at = NOW()
+                      WHERE tenant_id = :tenant_id
+                        AND entity_name = :entity_name
+                        AND COALESCE(last_seen_execution_id::TEXT, '') <> :execution_id
+                        AND is_deleted = FALSE
+                      RETURNING raw_id
+                    )
+                    SELECT COUNT(*) AS total
+                    FROM reconciled
+                    """
+                ),
+                {
+                    "execution_id": execution_id,
+                    "tenant_id": tenant_id,
+                    "entity_name": entity_name,
+                },
+            ).mappings().one()
+            return int(row["total"] or 0)
+
     def fetch_execution_summary(self, execution_id: str) -> dict[str, Any] | None:
         with self.engine.connect() as connection:
             row = connection.execute(
@@ -739,6 +809,7 @@ class ExtractionRepository:
                     """
                     SELECT
                       execution_id,
+                      MAX(execution_type) AS execution_type,
                       MIN(started_at) AS started_at,
                       CASE
                         WHEN COUNT(*) FILTER (WHERE status = 'running') > 0 THEN NULL
@@ -768,6 +839,7 @@ class ExtractionRepository:
                     """
                     SELECT
                       execution_id,
+                      MAX(execution_type) AS execution_type,
                       MIN(started_at) AS started_at,
                       CASE
                         WHEN COUNT(*) FILTER (WHERE status = 'running') > 0 THEN NULL

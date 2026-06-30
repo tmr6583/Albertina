@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+import os
 import time
 import threading
 import traceback
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import re
@@ -21,6 +24,7 @@ from .transform import (
     extract_nested_objects,
     format_incremental_date,
     format_incremental_datetime,
+    format_incremental_datetime_br,
     parse_olist_datetime,
     payload_hash,
 )
@@ -38,6 +42,42 @@ RETRYABLE_HTTP_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 PLAN_LIMIT_START_DATE_RE = re.compile(r"a partir de (\d{2}/\d{2}/\d{4})")
 
 
+#region debug-point lastlog-report
+def _debug_report(hypothesis_id: str, location: str, msg: str, data: dict[str, Any] | None = None) -> None:
+    try:
+        debug_server_url = "http://127.0.0.1:7782/event"
+        debug_session_id = "lastlog-execution"
+        debug_env_path = os.path.join(".dbg", "lastlog-execution.env")
+        if os.path.exists(debug_env_path):
+            with open(debug_env_path, "r", encoding="utf-8") as debug_env_file:
+                for raw_line in debug_env_file:
+                    line = raw_line.strip()
+                    if line.startswith("DEBUG_SERVER_URL="):
+                        debug_server_url = line.split("=", 1)[1].strip() or debug_server_url
+                    elif line.startswith("DEBUG_SESSION_ID="):
+                        debug_session_id = line.split("=", 1)[1].strip() or debug_session_id
+        payload = {
+            "sessionId": debug_session_id,
+            "runId": "pre-fix",
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "msg": msg,
+            "data": data or {},
+            "ts": int(time.time() * 1000),
+        }
+        request = urllib.request.Request(
+            debug_server_url,
+            data=json.dumps(payload, default=str).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(request, timeout=2).read()
+    except Exception:
+        pass
+
+
+#endregion
+
+
 @dataclass
 class WorkflowCounters:
     requests: int = 0
@@ -49,6 +89,22 @@ class WorkflowCounters:
 
 class ExtractionStopped(Exception):
     pass
+
+
+class OlistInvalidJsonError(RuntimeError):
+    def __init__(
+        self,
+        *,
+        endpoint_path: str,
+        status_code: int | None,
+        response_text: str,
+        response_headers: dict[str, str],
+    ) -> None:
+        super().__init__(f"A API da Olist retornou JSON invalido em {endpoint_path}.")
+        self.endpoint_path = endpoint_path
+        self.status_code = status_code
+        self.response_text = response_text
+        self.response_headers = response_headers
 
 
 class OlistApiClient:
@@ -95,9 +151,41 @@ class OlistApiClient:
                 try:
                     return response.json(), response_headers
                 except ValueError as exc:
-                    raise RuntimeError(f"A API da Olist retornou JSON invalido em {endpoint_path}.") from exc
+                    #region debug-point lastlog-invalid-json
+                    _debug_report(
+                        "H1",
+                        "extract.py:request_json",
+                        "[DEBUG] Invalid JSON response observed",
+                        {
+                            "endpointPath": endpoint_path,
+                            "statusCode": response.status_code,
+                            "contentType": response.headers.get("Content-Type"),
+                            "responseTextPreview": (response.text or "")[:500],
+                        },
+                    )
+                    #endregion
+                    raise OlistInvalidJsonError(
+                        endpoint_path=endpoint_path,
+                        status_code=response.status_code,
+                        response_text=response.text or "",
+                        response_headers=response_headers,
+                    ) from exc
             except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as exc:
                 last_error = exc
+                #region debug-point lastlog-http-error
+                if isinstance(exc, requests.HTTPError) and exc.response is not None:
+                    _debug_report(
+                        "H1",
+                        "extract.py:request_json",
+                        "[DEBUG] HTTP error response observed",
+                        {
+                            "endpointPath": endpoint_path,
+                            "statusCode": exc.response.status_code,
+                            "contentType": exc.response.headers.get("Content-Type"),
+                            "responseTextPreview": (exc.response.text or "")[:500],
+                        },
+                    )
+                #endregion
                 adjusted_params = self._adjust_date_range_from_plan_limit(exc, request_params)
                 if adjusted_params is not None and adjusted_params != request_params:
                     request_params = adjusted_params
@@ -227,24 +315,33 @@ class WorkflowRunner:
         self.stop_requested = stop_requested or (lambda: False)
         self._debug_state: dict[str, Any] = {"entity": None, "step": None, "sourceIndex": 0, "sourceTotal": 0}
 
-    def run_workflow(self, *, execution_id: str, tenant_id: str, workflow: Workflow) -> dict[str, Any]:
+    def run_workflow(
+        self,
+        *,
+        execution_id: str,
+        execution_type: str,
+        tenant_id: str,
+        workflow: Workflow,
+    ) -> dict[str, Any]:
         root_step = next(step for step in workflow.steps if step.name == workflow.root_step)
         watermark_from = self.repository.get_watermark(tenant_id, workflow.entity_name, root_step.endpoint_path)
-        sync_mode = "incremental" if root_step.incremental else "full"
+        sync_mode = self._resolve_sync_mode(root_step=root_step, execution_type=execution_type)
         sync_run_id = self.repository.create_sync_run(
             execution_id=execution_id,
+            execution_type=execution_type,
             tenant_id=tenant_id,
             entity_name=workflow.entity_name,
             endpoint_path=root_step.endpoint_path,
             sync_mode=sync_mode,
             watermark_from=watermark_from,
-            details={"entity": workflow.entity_name, "rootStep": root_step.name},
+            details={"entity": workflow.entity_name, "rootStep": root_step.name, "executionType": execution_type},
         )
         counters = WorkflowCounters()
         contexts_by_step: dict[str, list[dict[str, Any]]] = {}
         status = "success"
         started_at = utc_now()
         next_watermark = started_at if root_step.incremental else None
+        reconciled_deleted_count = 0
         heartbeat_stop = threading.Event()
         self._debug_state = {"entity": workflow.entity_name, "step": "workflow.start", "sourceIndex": 0, "sourceTotal": 0}
         heartbeat_thread = threading.Thread(
@@ -280,15 +377,34 @@ class WorkflowRunner:
                     sync_run_id=sync_run_id,
                     tenant_id=tenant_id,
                     entity_name=workflow.entity_name,
+                    execution_type=execution_type,
                     step=step,
                     source_contexts=step_contexts,
                     counters=counters,
                 )
                 contexts_by_step[step.name] = extracted_contexts
-                if root_step.incremental and step.name == root_step.name:
+                if execution_type != "reconciliation" and root_step.incremental and step.name == root_step.name:
                     next_watermark = self._resolve_next_watermark(extracted_contexts, started_at)
 
-            if root_step.incremental:
+            if execution_type == "reconciliation":
+                reconciled_deleted_count = self.repository.reconcile_entity_deletions(
+                    execution_id=execution_id,
+                    tenant_id=tenant_id,
+                    entity_name=workflow.entity_name,
+                )
+                self._log(
+                    execution_id=execution_id,
+                    sync_run_id=sync_run_id,
+                    tenant_id=tenant_id,
+                    entity_name=workflow.entity_name,
+                    level="INFO",
+                    stage="reconciliation",
+                    message=(
+                        f"Conciliação da entidade {workflow.entity_name} concluída. "
+                        f"Registros marcados como deletados: {reconciled_deleted_count}."
+                    ),
+                )
+            elif root_step.incremental:
                 self.repository.save_watermark(tenant_id, workflow.entity_name, root_step.endpoint_path, next_watermark or started_at)
         except ExtractionStopped:
             status = "cancelled"
@@ -322,10 +438,12 @@ class WorkflowRunner:
             duration_seconds = max((utc_now() - started_at).total_seconds(), 0.0)
             details = {
                 "entity": workflow.entity_name,
+                "executionType": execution_type,
                 "durationSeconds": round(duration_seconds, 2),
                 "extractedCount": counters.extracted,
                 "insertedCount": counters.inserted,
                 "updatedCount": counters.updated,
+                "reconciledDeletedCount": reconciled_deleted_count if status == "success" else 0,
             }
             self.repository.finish_sync_run(
                 sync_run_id=sync_run_id,
@@ -333,7 +451,11 @@ class WorkflowRunner:
                 request_count=counters.requests,
                 success_count=counters.inserted + counters.updated,
                 error_count=counters.errors,
-                watermark_to=(next_watermark or started_at) if status == "success" and root_step.incremental else None,
+                watermark_to=(
+                    (next_watermark or started_at)
+                    if status == "success" and execution_type != "reconciliation" and root_step.incremental
+                    else None
+                ),
                 details=details,
             )
             self._log(
@@ -348,6 +470,8 @@ class WorkflowRunner:
                     status=status,
                     counters=counters,
                     duration_seconds=duration_seconds,
+                    execution_type=execution_type,
+                    reconciled_deleted_count=details["reconciledDeletedCount"],
                 ),
                 extracted_count=counters.extracted,
                 inserted_count=counters.inserted,
@@ -405,6 +529,7 @@ class WorkflowRunner:
         sync_run_id: str,
         tenant_id: str,
         entity_name: str,
+        execution_type: str,
         step: EndpointStep,
         source_contexts: list[dict[str, Any]],
         counters: WorkflowCounters,
@@ -454,7 +579,7 @@ class WorkflowRunner:
                     message=f"Andamento de contacts.detail: processados={source_index}/{total_source_contexts}.",
                 )
             path_params = self._build_path_params(step, source_context)
-            params = self._build_query_params(step, tenant_id, entity_name)
+            params = self._build_query_params(step, tenant_id, entity_name, execution_type)
             endpoint_path = step.endpoint_path.format(**path_params)
 
             if step.pagination:
@@ -463,7 +588,20 @@ class WorkflowRunner:
                 while True:
                     self._ensure_not_stopped(entity_name)
                     paged_params = {**params, "limit": page_limit, "offset": page_offset}
-                    payload, _ = self.client.request_json(endpoint_path, paged_params)
+                    try:
+                        payload, _ = self.client.request_json(endpoint_path, paged_params)
+                    except Exception as exc:
+                        if self._handle_ignorable_step_error(
+                            execution_id=execution_id,
+                            sync_run_id=sync_run_id,
+                            tenant_id=tenant_id,
+                            entity_name=entity_name,
+                            step=step,
+                            endpoint_path=endpoint_path,
+                            error=exc,
+                        ):
+                            break
+                        raise
                     counters.requests += 1
                     page_contexts = self._persist_payloads(
                         execution_id=execution_id,
@@ -495,7 +633,20 @@ class WorkflowRunner:
                     page_offset += page_limit
                 continue
 
-            payload, _ = self.client.request_json(endpoint_path, params or None)
+            try:
+                payload, _ = self.client.request_json(endpoint_path, params or None)
+            except Exception as exc:
+                if self._handle_ignorable_step_error(
+                    execution_id=execution_id,
+                    sync_run_id=sync_run_id,
+                    tenant_id=tenant_id,
+                    entity_name=entity_name,
+                    step=step,
+                    endpoint_path=endpoint_path,
+                    error=exc,
+                ):
+                    continue
+                raise
             counters.requests += 1
             page_contexts = self._persist_payloads(
                 execution_id=execution_id,
@@ -532,14 +683,31 @@ class WorkflowRunner:
             resolved[param_name] = value
         return resolved
 
-    def _build_query_params(self, step: EndpointStep, tenant_id: str, entity_name: str) -> dict[str, Any]:
+    def _build_query_params(
+        self,
+        step: EndpointStep,
+        tenant_id: str,
+        entity_name: str,
+        execution_type: str,
+    ) -> dict[str, Any]:
         params: dict[str, Any] = dict(step.extra_params)
         if step.incremental is None:
             return params
 
+        if execution_type == "reconciliation":
+            if step.incremental.mode == "date_range":
+                start_reference = utc_now() - timedelta(days=3650)
+                start_value = format_incremental_date(start_reference)
+                end_value = format_incremental_date(utc_now())
+                if start_value:
+                    params[step.incremental.start_param] = start_value
+                if step.incremental.end_param and end_value:
+                    params[step.incremental.end_param] = end_value
+            return params
+
         watermark = self.repository.get_watermark(tenant_id, entity_name, step.endpoint_path)
         if step.incremental.mode == "watermark":
-            formatted = format_incremental_datetime(watermark)
+            formatted = self._format_incremental_watermark(watermark, step.incremental.datetime_format)
             if formatted:
                 params[step.incremental.start_param] = formatted
         elif step.incremental.mode == "date_range":
@@ -551,6 +719,12 @@ class WorkflowRunner:
             if step.incremental.end_param and end_value:
                 params[step.incremental.end_param] = end_value
         return params
+
+    @staticmethod
+    def _format_incremental_watermark(value: datetime | None, datetime_format: str) -> str | None:
+        if datetime_format == "br":
+            return format_incremental_datetime_br(value)
+        return format_incremental_datetime(value)
 
     def _persist_payloads(
         self,
@@ -600,6 +774,7 @@ class WorkflowRunner:
                     fallback_index=index,
                 )
                 upsert_result = self.repository.upsert_raw_payload(
+                    execution_id=execution_id,
                     tenant_id=tenant_id,
                     entity_name=entity_name,
                     endpoint_path=endpoint_path,
@@ -609,6 +784,7 @@ class WorkflowRunner:
                     if isinstance(parent_object_id, int) or str(parent_object_id).isdigit()
                     else None,
                     source_updated_at=source_updated_at,
+                    source_status=self._extract_source_status(record),
                     sync_run_id=sync_run_id,
                     payload_hash_value=payload_hash(record),
                     payload=record,
@@ -639,6 +815,57 @@ class WorkflowRunner:
         )
         return page_contexts
 
+    def _handle_ignorable_step_error(
+        self,
+        *,
+        execution_id: str,
+        sync_run_id: str,
+        tenant_id: str,
+        entity_name: str,
+        step: EndpointStep,
+        endpoint_path: str,
+        error: Exception,
+    ) -> bool:
+        status_code: int | None = None
+        response_preview = ""
+        reason = ""
+
+        if isinstance(error, requests.HTTPError) and error.response is not None:
+            status_code = error.response.status_code
+            response_preview = (error.response.text or "")[:200]
+            if status_code in step.ignore_http_statuses:
+                reason = f"status HTTP {status_code}"
+        elif isinstance(error, OlistInvalidJsonError) and step.ignore_invalid_json:
+            status_code = error.status_code
+            response_preview = error.response_text[:200]
+            reason = "JSON invalido"
+
+        if not reason:
+            return False
+
+        self._log(
+            execution_id=execution_id,
+            sync_run_id=sync_run_id,
+            tenant_id=tenant_id,
+            entity_name=entity_name,
+            level="WARNING",
+            stage=step.name,
+            message=(
+                f"Etapa opcional {step.name} ignorada em {endpoint_path} por {reason}. "
+                f"A entidade seguira em frente."
+            ),
+        )
+        self.logger.warning(
+            "Etapa opcional ignorada: entity=%s step=%s endpoint=%s reason=%s status=%s preview=%s",
+            entity_name,
+            step.name,
+            endpoint_path,
+            reason,
+            status_code,
+            response_preview,
+        )
+        return True
+
     @staticmethod
     def _resolve_next_watermark(extracted_contexts: list[dict[str, Any]], started_at: datetime) -> datetime:
         latest_seen: datetime | None = None
@@ -649,6 +876,26 @@ class WorkflowRunner:
         if latest_seen is None:
             return started_at
         return latest_seen if latest_seen <= started_at else started_at
+
+    @staticmethod
+    def _resolve_sync_mode(*, root_step: EndpointStep, execution_type: str) -> str:
+        if execution_type == "reconciliation":
+            return "reconciliation"
+        if root_step.incremental:
+            return "incremental"
+        return "snapshot"
+
+    @staticmethod
+    def _extract_source_status(record: Any) -> str | None:
+        if not isinstance(record, dict):
+            return None
+        for key in ("situacao", "status", "statusCrm"):
+            value = record.get(key)
+            if value not in {None, ""}:
+                return str(value)
+        if "arquivado" in record:
+            return f"arquivado={bool(record.get('arquivado'))}"
+        return None
 
     def _log(
         self,
@@ -761,10 +1008,15 @@ class WorkflowRunner:
         status: str,
         counters: WorkflowCounters,
         duration_seconds: float,
+        execution_type: str,
+        reconciled_deleted_count: int,
     ) -> str:
         prefix = "Execução interrompida" if status == "cancelled" else "Fim"
-        return (
+        base = (
             f"{prefix} da entidade {entity_name}. Extraidos={counters.extracted}, "
             f"inseridos={counters.inserted}, atualizados={counters.updated}, "
             f"tempo_total={duration_seconds:.2f}s."
         )
+        if execution_type == "reconciliation" and status == "success":
+            return f"{base} deletados_conciliados={reconciled_deleted_count}."
+        return base

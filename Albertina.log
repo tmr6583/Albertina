@@ -1,0 +1,96 @@
+[27/06/2026 20:32:47,91] Script aberto.
+[27/06/2026 20:32:55,89] Usuario consultou status.
+[27/06/2026 20:33:00,93] Usuario solicitou inicio da aplicacao.
+[27/06/2026 20:33:01,09] Reinicio completo solicitado.
+[27/06/2026 20:33:02,36] Frontend relacionado: taskkill /T executado para o PID 17524.
+[27/06/2026 20:33:02,48] Frontend relacionado: taskkill /T executado para o PID 29488.
+[27/06/2026 20:33:03,22] Frontend encerrado.
+[27/06/2026 20:33:04,41] Backend relacionado: taskkill /T executado para o PID 19344.
+[27/06/2026 20:33:04,52] Backend relacionado: taskkill /T executado para o PID 46636.
+[27/06/2026 20:33:05,21] Backend encerrado.
+[27/06/2026 20:33:06,59] Iniciando backend.
+[27/06/2026 20:33:10,55] Backend iniciado com PID 27744.
+[27/06/2026 20:33:10,57] Iniciando frontend.
+[27/06/2026 20:33:13,50] Frontend iniciado com PID 19744.
+[29/06/2026 11:43:17,23] Script aberto.
+[29/06/2026 11:43:22,67] backend: taskkill /T executado para o PID 27744.
+[29/06/2026 11:43:23,24] Backend relacionado: taskkill /T executado para o PID 25280.
+[29/06/2026 11:43:23,36] Backend relacionado: taskkill /T executado para o PID 8444.
+[29/06/2026 11:43:24,48] frontend: taskkill /T executado para o PID 19744.
+[29/06/2026 11:43:25,06] Frontend relacionado: taskkill /T executado para o PID 50300.
+[29/06/2026 11:43:25,19] Frontend relacionado: taskkill /T executado para o PID 22008.
+[29/06/2026 11:43:29,30] Usuario consultou status.
+[29/06/2026 11:45:07,09] Usuario consultou status.
+[29/06/2026 11:45:12,05] Usuario solicitou inicio da aplicacao.
+[29/06/2026 11:45:12,19] Reinicio completo solicitado.
+[29/06/2026 11:45:13,36] Frontend relacionado: taskkill /T executado para o PID 35820.
+[29/06/2026 11:45:13,46] Frontend relacionado: taskkill /T executado para o PID 15724.
+[29/06/2026 11:45:14,09] Frontend encerrado.
+[29/06/2026 11:45:15,24] Backend relacionado: taskkill /T executado para o PID 12600.
+[29/06/2026 11:45:15,36] Backend relacionado: taskkill /T executado para o PID 3560.
+[29/06/2026 11:45:16,08] Backend encerrado.
+[29/06/2026 11:45:17,68] Iniciando backend.
+[29/06/2026 11:45:23,76] Backend iniciado com PID 40900.
+[29/06/2026 11:45:23,76] Iniciando frontend.
+[29/06/2026 11:45:26,80] Frontend iniciado com PID 50196.
+[29/06/2026 12:26:29,85] Script aberto.
+[29/06/2026 12:26:33,76] Inicializacao via linha de comando.
+[29/06/2026 12:26:37,60] Reinicio completo solicitado.
+[29/06/2026 12:26:37,83] Frontend: taskkill /T executado para o PID 50196.
+[29/06/2026 12:26:37,85] Frontend: tentativa de encerramento da arvore do PID 50196.
+[29/06/2026 12:26:40,84] Frontend relacionado: taskkill /T executado para o PID 21956.
+[29/06/2026 12:26:41,00] Frontend relacionado: taskkill /T executado para o PID 34732.
+[29/06/2026 12:26:42,43] Frontend encerrado.
+[29/06/2026 12:26:42,61] Backend: taskkill /T executado para o PID 40900.
+[29/06/2026 12:26:42,61] Backend: tentativa de encerramento da arvore do PID 40900.
+[29/06/2026 12:26:44,96] Backend relacionado: taskkill /T executado para o PID 40484.
+[29/06/2026 12:26:45,13] Backend relacionado: taskkill /T executado para o PID 41500.
+[29/06/2026 12:26:46,17] Backend encerrado.
+[29/06/2026 12:26:48,47] Iniciando backend.
+[29/06/2026 12:27:01,44] Backend iniciado com PID 47988.
+[29/06/2026 12:27:01,45] Iniciando frontend.
+[29/06/2026 12:27:06,83] Frontend iniciado com PID 29584.
+[29/06/2026 12:31:03,63] Script aberto.
+[29/06/2026 12:31:11,53] Usuario solicitou encerramento da aplicacao.
+[29/06/2026 12:31:11,61] Frontend: taskkill /T executado para o PID 29584.
+[29/06/2026 12:31:11,61] Frontend: tentativa de encerramento da arvore do PID 29584.
+[29/06/2026 12:31:12,29] Frontend: taskkill /T executado para o PID 29584.
+[29/06/2026 12:31:12,29] Frontend: processo da porta 3500 encerrado via PID 29584.
+[29/06/2026 12:31:12,70] Frontend relacionado: taskkill /T executado para o PID 23708.
+[29/06/2026 12:31:12,79] Frontend relacionado: taskkill /T executado para o PID 17684.
+[29/06/2026 12:31:21,73] Frontend permaneceu ativo na porta 3500 apos a tentativa de encerramento.
+[29/06/2026 12:31:21,84] Backend: taskkill /T executado para o PID 47988.
+[29/06/2026 12:31:21,84] Backend: tentativa de encerramento da arvore do PID 47988.
+[29/06/2026 12:31:22,57] Backend: taskkill /T executado para o PID 47988.
+[29/06/2026 12:31:22,57] Backend: processo da porta 8000 encerrado via PID 47988.
+[29/06/2026 12:31:23,08] Backend relacionado: taskkill /T executado para o PID 34140.
+[29/06/2026 12:31:23,18] Backend relacionado: taskkill /T executado para o PID 16736.
+[29/06/2026 12:31:31,76] Backend permaneceu ativo na porta 8000 apos a tentativa de encerramento.
+[29/06/2026 12:31:38,78] Usuario solicitou encerramento da aplicacao.
+[29/06/2026 12:31:39,46] Frontend: taskkill /T executado para o PID 29584.
+[29/06/2026 12:31:39,46] Frontend: processo da porta 3500 encerrado via PID 29584.
+[29/06/2026 12:31:39,87] Frontend relacionado: taskkill /T executado para o PID 30116.
+[29/06/2026 12:31:39,96] Frontend relacionado: taskkill /T executado para o PID 39932.
+[29/06/2026 12:31:49,01] Frontend permaneceu ativo na porta 3500 apos a tentativa de encerramento.
+[29/06/2026 12:31:49,98] Backend: taskkill /T executado para o PID 47988.
+[29/06/2026 12:31:49,98] Backend: processo da porta 8000 encerrado via PID 47988.
+[29/06/2026 12:31:50,59] Backend relacionado: taskkill /T executado para o PID 42132.
+[29/06/2026 12:31:50,73] Backend relacionado: taskkill /T executado para o PID 15072.
+[29/06/2026 12:31:59,82] Backend permaneceu ativo na porta 8000 apos a tentativa de encerramento.
+[29/06/2026 12:32:57,44] Usuario consultou status.
+[30/06/2026 10:07:58,11] Script aberto.
+[30/06/2026 10:08:01,34] Consulta de status via linha de comando.
+[30/06/2026 10:08:11,26] Script aberto.
+[30/06/2026 10:08:14,03] Encerramento via linha de comando.
+[30/06/2026 10:08:17,77] Frontend: taskkill /T executado para o PID 32916.
+[30/06/2026 10:08:17,77] Frontend: processo da porta 3500 encerrado via PID 32916.
+[30/06/2026 10:08:18,40] Frontend relacionado: taskkill /T executado para o PID 37488.
+[30/06/2026 10:08:18,56] Frontend relacionado: taskkill /T executado para o PID 52436.
+[30/06/2026 10:08:19,30] Frontend encerrado.
+[30/06/2026 10:08:20,35] Backend: taskkill /T executado para o PID 37308.
+[30/06/2026 10:08:20,36] Backend: processo da porta 8000 encerrado via PID 37308.
+[30/06/2026 10:08:21,23] Backend relacionado: taskkill /T executado para o PID 18396.
+[30/06/2026 10:08:21,37] Backend relacionado: taskkill /T executado para o PID 44692.
+[30/06/2026 10:08:22,08] Backend encerrado.
+[30/06/2026 10:08:31,07] Script aberto.
+[30/06/2026 10:08:33,74] Consulta de status via linha de comando.

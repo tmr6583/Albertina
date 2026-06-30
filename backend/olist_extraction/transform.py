@@ -41,6 +41,12 @@ def format_incremental_datetime(value: datetime | None) -> str | None:
     return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def format_incremental_datetime_br(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M:%S")
+
+
 def format_incremental_date(value: datetime | None) -> str | None:
     if value is None:
         return None

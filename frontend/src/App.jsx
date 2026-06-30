@@ -184,6 +184,31 @@ function formatDuration(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function formatDurationHuman(totalSeconds) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return '--'
+  }
+
+  const normalizedSeconds = Math.max(0, Math.round(totalSeconds))
+  const hours = Math.floor(normalizedSeconds / 3600)
+  const minutes = Math.floor((normalizedSeconds % 3600) / 60)
+  const seconds = normalizedSeconds % 60
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
+  }
+
+  if (minutes > 0) {
+    return `${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
+  }
+
+  return `${String(seconds).padStart(2, '0')}s`
+}
+
+function labelFromExecutionType(executionType) {
+  return executionType === 'reconciliation' ? 'Conciliação' : 'Incremental'
+}
+
 function formatRequestsPerMinute(value) {
   if (!Number.isFinite(value) || value <= 0) {
     return 'Aguardando ritmo'
@@ -205,14 +230,38 @@ function formatHighlightedErrorCount(value) {
   return normalizedValue > 0 ? `##!!## ${normalizedValue} ##!!##` : String(normalizedValue)
 }
 
+function getRunLineProgress(run) {
+  const details = run?.details ?? {}
+  const processed = Math.max(0, Number(details.sourceContextsProcessed) || 0)
+  const total = Math.max(0, Number(details.sourceContextsTotal) || 0)
+  const remaining = total > 0 ? Math.max(total - processed, 0) : 0
+  const inserted = Math.max(0, Number(details.insertedCount) || 0)
+  const updated = Math.max(0, Number(details.updatedCount) || 0)
+  const extracted = Math.max(0, Number(details.extractedCount) || 0)
+
+  return {
+    processed,
+    total,
+    remaining,
+    inserted,
+    updated,
+    extracted,
+    lineProgressLabel: total > 0 ? `${processed}/${total}` : (processed > 0 ? `${processed}` : '--'),
+    lineRemainingLabel: total > 0 ? `${remaining}` : '--',
+    persistenceBreakdownLabel: `${inserted} inseridas • ${updated} atualizadas`,
+  }
+}
+
 function buildExtractionExecutionLogText(payload) {
   const runs = payload?.runs ?? []
   const logs = payload?.logs ?? []
   const lines = [
     'Albertina - Log da Execução de Extração',
     `Execução: ${payload?.executionId ?? 'Não informado'}`,
+    `Tipo: ${labelFromExecutionType(payload?.executionType)}`,
     `Início: ${formatDateTime(payload?.startedAt)}`,
     `Fim: ${formatDateTime(payload?.finishedAt)}`,
+    `Tempo total: ${payload?.durationLabel ?? formatDurationHuman(payload?.durationSeconds)}`,
     `Requisições: ${payload?.requestCount ?? 0}`,
     `Persistências: ${payload?.successCount ?? 0}`,
     `Erros: ${formatHighlightedErrorCount(payload?.errorCount)}`,
@@ -229,17 +278,26 @@ function buildExtractionExecutionLogText(payload) {
     lines.push('Nenhuma entidade registrada nesta execução.')
   } else {
     runs.forEach((item, index) => {
+      const lineProgress = getRunLineProgress(item)
       lines.push(
         `${index + 1}. ${item.entityName ?? 'Entidade não informada'}`,
         `   Status: ${labelFromExtractionStatus(item.status)}`,
         `   Modo: ${item.syncMode ?? 'Não informado'}`,
         `   Início: ${formatDateTime(item.startedAt)}`,
         `   Fim: ${formatDateTime(item.finishedAt)}`,
+        `   Tempo total: ${item.durationLabel ?? formatDurationHuman(item.durationSeconds)}`,
         `   Requisições: ${item.requestCount ?? 0}`,
         `   Persistências: ${item.successCount ?? 0}`,
         `   Erros: ${formatHighlightedErrorCount(item.errorCount)}`,
-        '',
       )
+      if (lineProgress.total > 0 || lineProgress.processed > 0) {
+        lines.push(
+          `   Linhas processadas: ${lineProgress.lineProgressLabel}`,
+          `   Linhas faltantes: ${lineProgress.lineRemainingLabel}`,
+          `   Inserção: ${lineProgress.persistenceBreakdownLabel}`,
+        )
+      }
+      lines.push('')
     })
   }
 
@@ -327,7 +385,7 @@ function ExtractionExecutionSummaryCard({ summary }) {
         {summary.blocks.map((block) => (
           <section
             key={block.label}
-            className={`extraction-executive-block ${block.featured ? 'is-featured' : ''} ${block.variant ? `is-${block.variant}` : ''}`}
+            className={`extraction-executive-block ${block.featured ? 'is-featured' : ''} ${block.fullWidth ? 'is-full-width' : ''} ${block.variant ? `is-${block.variant}` : ''}`}
           >
             <span>{block.label}</span>
             {block.metrics ? (
@@ -376,6 +434,14 @@ function ExtractionRunItem({ item }) {
           <strong>{item.successCountLabel}</strong>
         </div>
         <div>
+          <span>Linhas</span>
+          <strong>{item.lineProgressLabel}</strong>
+        </div>
+        <div>
+          <span>Faltantes</span>
+          <strong>{item.lineRemainingLabel}</strong>
+        </div>
+        <div>
           <span>Erros</span>
           <strong>{item.errorCountLabel}</strong>
         </div>
@@ -387,6 +453,7 @@ function ExtractionRunItem({ item }) {
 
       <div className="extraction-run-meta">
         <span>Velocidade: <strong>{item.speedLabel}</strong></span>
+        <span>{item.persistenceBreakdownLabel}</span>
         <span>{item.footnote}</span>
       </div>
     </li>
@@ -769,7 +836,14 @@ function ConnectionsPage({
 }
 
 
-function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshExecution }) {
+function ExtractionPage({
+  overview,
+  isSubmitting,
+  onStartIncremental,
+  onStartReconciliation,
+  onStopExtraction,
+  onRefreshExecution,
+}) {
   const activeExecution = overview?.activeExecution
   const executionRuns = useMemo(() => activeExecution?.runs ?? [], [activeExecution?.runs])
   const recentExecutions = useMemo(() => overview?.recentExecutions ?? [], [overview?.recentExecutions])
@@ -814,6 +888,7 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
         ? completedRequests.reduce((sum, value) => sum + value, 0) / completedRequests.length
         : 0
     const runningRequests = Number(runningRun?.requestCount) || 0
+    const currentRunLineProgress = getRunLineProgress(currentRun)
     const partialRunningProgress =
       runningRun && benchmarkRequests > 0
         ? Math.min(runningRequests / Math.max(benchmarkRequests, 1), 0.94)
@@ -843,6 +918,9 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
         benchmarkRequests > 0 ? `${Math.round(benchmarkRequests)} req/entidade` : 'Sem benchmark ainda',
       currentRequestsLabel: `${runningRequests}`,
       currentSuccessLabel: `${Number(currentRun?.successCount) || 0}`,
+      currentLineProgressLabel: currentRunLineProgress.lineProgressLabel,
+      currentLineRemainingLabel: currentRunLineProgress.lineRemainingLabel,
+      currentPersistenceBreakdownLabel: currentRunLineProgress.persistenceBreakdownLabel,
       currentErrorsLabel: `${Number(currentRun?.errorCount) || 0}`,
       progressRatio,
       benchmarkDurationSeconds:
@@ -869,6 +947,7 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
     activeExecution?.startedAt,
     clockMs,
     currentRun?.errorCount,
+    currentRun?.details,
     currentRun?.successCount,
     executionRuns,
     runningRun,
@@ -908,6 +987,7 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
       const referenceMs = finishedAtMs ?? referenceNowMs
       const elapsedSeconds = startedAtMs ? Math.max(0, (referenceMs - startedAtMs) / 1000) : 0
       const requestCount = Number(item.requestCount) || 0
+      const lineProgress = getRunLineProgress(item)
       const requestsPerMinute = elapsedSeconds > 0 ? (requestCount / elapsedSeconds) * 60 : 0
       let etaSeconds = null
 
@@ -928,6 +1008,9 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
         isCurrent: item.status === 'running',
         requestCountLabel: `${requestCount}`,
         successCountLabel: `${Number(item.successCount) || 0}`,
+        lineProgressLabel: lineProgress.lineProgressLabel,
+        lineRemainingLabel: lineProgress.lineRemainingLabel,
+        persistenceBreakdownLabel: lineProgress.persistenceBreakdownLabel,
         errorCountLabel: `${Number(item.errorCount) || 0}`,
         speedLabel:
           item.status === 'running' || item.status === 'success'
@@ -974,6 +1057,9 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
           isCurrent: false,
           requestCountLabel: '--',
           successCountLabel: '--',
+          lineProgressLabel: '--',
+          lineRemainingLabel: '--',
+          persistenceBreakdownLabel: 'Aguardando processamento',
           errorCountLabel: '--',
           speedLabel: 'Aguardando',
           etaLabel: formatEtaLabel(etaSeconds, 'Aguardando benchmark'),
@@ -1014,6 +1100,7 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
     const touchedEntities = [...new Set(recentLogs.map((item) => item.entityName).filter(Boolean))]
     const touchedStages = [...new Set(recentLogs.map((item) => item.stage).filter(Boolean))]
     const errorEvents = recentLogs.filter((item) => item.level === 'ERROR').length
+    const currentRunLineProgress = getRunLineProgress(currentRun)
     const latestEventAt = latestLog?.createdAt ?? activeExecution.finishedAt ?? activeExecution.startedAt
     const executionTone = isRunning
       ? 'accent'
@@ -1043,9 +1130,14 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
           detail: `${remainingEntities} entidades restantes nesta execução`,
         },
         {
+          label: 'Tipo',
+          value: labelFromExecutionType(activeExecution.executionType),
+          detail: 'Modo operacional da execução ativa ou mais recente',
+        },
+        {
           label: 'Período',
           value: `${formatDateTime(activeExecution.startedAt)} até ${formatDateTime(activeExecution.finishedAt)}`,
-          detail: 'Janela completa registrada para a execução ativa ou mais recente',
+          detail: `Tempo total ${activeExecution.durationLabel ?? formatDurationHuman(activeExecution.durationSeconds)}`,
         },
         {
           label: 'Entidades',
@@ -1057,15 +1149,20 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
           metrics: [
             { label: 'Requisições', value: activeExecution.requestCount ?? 0 },
             { label: 'Persistências', value: activeExecution.successCount ?? 0 },
+            { label: 'Linhas', value: currentRunLineProgress.lineProgressLabel },
+            { label: 'Faltantes', value: currentRunLineProgress.lineRemainingLabel },
             { label: 'Erros', value: activeExecution.errorCount ?? 0 },
           ],
-          detail: 'Resumo operacional agregado da execução',
+          detail: currentRun
+            ? `${currentRun.entityName} • ${currentRunLineProgress.persistenceBreakdownLabel}`
+            : 'Resumo operacional agregado da execução',
           variant: 'volume',
         },
         {
           label: 'Cobertura do log',
           value: `${recentLogs.length} eventos • ${touchedEntities.length} entidades • ${touchedStages.length} etapas`,
           detail: `${errorEvents} eventos de erro identificados na trilha`,
+          fullWidth: true,
         },
         {
           label: 'Último evento',
@@ -1077,6 +1174,7 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
     }
   }, [
     activeExecution,
+    currentRun,
     isRunning,
     latestLog,
     recentLogs,
@@ -1096,14 +1194,14 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
       helper: isStopping
         ? 'Parada solicitada, aguardando encerramento seguro'
         : isRunning
-          ? 'Sincronização em andamento'
+                          ? `${labelFromExecutionType(activeExecution?.executionType)} em andamento`
           : 'Nenhuma rotina ativa agora',
     },
     {
       label: 'Andamento',
       value: `${processedEntities}/${supportedEntities.length || 0}`,
       helper: currentRun
-        ? `${currentRun.entityName} • ${labelFromExtractionStatus(currentRun.status)}`
+        ? `${currentRun.entityName} • ${labelFromExtractionStatus(currentRun.status)} • linhas ${getRunLineProgress(currentRun).lineProgressLabel}`
         : 'Aguardando primeira execução',
     },
     {
@@ -1150,14 +1248,35 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
             <button type="button" className="ghost-button" onClick={onRefreshExecution} disabled={isSubmitting}>
               Atualizar
             </button>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={onToggleExtraction}
-              disabled={isSubmitting}
-            >
-              {isStopping ? 'Parando extração...' : isRunning ? 'Parar extração' : 'Iniciar extração'}
-            </button>
+            {isRunning ? (
+              <button
+                type="button"
+                className="primary-button"
+                onClick={onStopExtraction}
+                disabled={isSubmitting}
+              >
+                {isStopping ? 'Parando extração...' : 'Parar extração'}
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={onStartIncremental}
+                  disabled={isSubmitting}
+                >
+                  Iniciar incremental
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button success"
+                  onClick={onStartReconciliation}
+                  disabled={isSubmitting}
+                >
+                  Iniciar conciliação
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -1215,6 +1334,9 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
                     <span>Entidade atual: <strong>{currentRun?.entityName ?? 'Aguardando'}</strong></span>
                     <span>Requisições atuais: <strong>{progressMetrics.currentRequestsLabel}</strong></span>
                     <span>Persistências atuais: <strong>{progressMetrics.currentSuccessLabel}</strong></span>
+                    <span>Linhas atuais: <strong>{progressMetrics.currentLineProgressLabel}</strong></span>
+                    <span>Linhas faltantes: <strong>{progressMetrics.currentLineRemainingLabel}</strong></span>
+                    <span>Inserção atual: <strong>{progressMetrics.currentPersistenceBreakdownLabel}</strong></span>
                     <span>Erros atuais: <strong>{progressMetrics.currentErrorsLabel}</strong></span>
                   </div>
                 </div>
@@ -1258,7 +1380,7 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
           </div>
         </article>
 
-        <article className="panel">
+        <article className="panel extraction-history-panel">
           <div className="panel-header compact">
             <div>
               <span className="eyebrow">Histórico</span>
@@ -1272,6 +1394,7 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
                   item={{
                     id: item.executionId,
                     executionId: item.executionId,
+                    executionType: item.executionType,
                     entitiesSuccess: item.entitiesSuccess ?? 0,
                     entitiesCancelled: item.entitiesCancelled ?? 0,
                     entitiesError: item.entitiesError ?? 0,
@@ -1297,7 +1420,7 @@ function ExtractionPage({ overview, isSubmitting, onToggleExtraction, onRefreshE
           )}
         </article>
 
-        <article className="panel">
+        <article className="panel extraction-coverage-panel">
           <div className="panel-header compact">
             <div>
               <span className="eyebrow">Cobertura</span>
@@ -1885,10 +2008,13 @@ function App() {
     }
   }
 
-  async function handleStartExtraction() {
+  async function handleStartExtraction(executionType) {
     setIsSubmitting(true)
     try {
-      const response = await apiRequest('/extraction/run', { method: 'POST' })
+      const response = await apiRequest('/extraction/run', {
+        method: 'POST',
+        body: JSON.stringify({ executionType }),
+      })
       const overview = await apiRequest('/extraction/overview')
       setExtractionOverview(overview)
       showPageFeedback(
@@ -1923,14 +2049,6 @@ function App() {
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  async function handleToggleExtraction() {
-    if (extractionOverview?.running) {
-      await handleStopExtraction()
-      return
-    }
-    await handleStartExtraction()
   }
 
   function renderAuthenticatedPage() {
@@ -1973,7 +2091,9 @@ function App() {
         <ExtractionPage
           overview={extractionOverview}
           isSubmitting={isSubmitting}
-          onToggleExtraction={handleToggleExtraction}
+          onStartIncremental={() => handleStartExtraction('incremental')}
+          onStartReconciliation={() => handleStartExtraction('reconciliation')}
+          onStopExtraction={handleStopExtraction}
           onRefreshExecution={handleRefreshExtraction}
         />
       )

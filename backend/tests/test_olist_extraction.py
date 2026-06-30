@@ -12,7 +12,7 @@ import requests
 
 from backend.olist_extraction.catalog import EndpointStep, IncrementalStrategy, Workflow
 from backend.olist_extraction.config import ExtractionSettings
-from backend.olist_extraction.extract import OlistApiClient, WorkflowCounters, WorkflowRunner
+from backend.olist_extraction.extract import OlistApiClient, OlistInvalidJsonError, WorkflowCounters, WorkflowRunner
 from backend.olist_extraction.load import UpsertResult
 from backend.olist_extraction.service import ExtractionService
 
@@ -63,18 +63,22 @@ class DummyRepository:
 
 class FakeWorkflowRepository:
     def __init__(self) -> None:
+        self.watermark: datetime | None = None
         self.saved_watermark: datetime | None = None
         self.finished_runs: list[dict[str, object]] = []
         self.progress_updates: list[dict[str, object]] = []
+        self.reconciled_deleted_total = 0
+        self.reconcile_calls: list[dict[str, object]] = []
 
     def get_watermark(self, tenant_id: str, entity_name: str, endpoint_path: str) -> datetime | None:
         del tenant_id, entity_name, endpoint_path
-        return None
+        return self.watermark
 
     def create_sync_run(
         self,
         *,
         execution_id: str,
+        execution_type: str,
         tenant_id: str,
         entity_name: str,
         endpoint_path: str,
@@ -82,7 +86,7 @@ class FakeWorkflowRepository:
         watermark_from: datetime | None,
         details: dict[str, object],
     ) -> str:
-        del execution_id, tenant_id, entity_name, endpoint_path, sync_mode, watermark_from, details
+        del execution_id, execution_type, tenant_id, entity_name, endpoint_path, sync_mode, watermark_from, details
         return "sync-run-1"
 
     def begin(self):
@@ -104,6 +108,10 @@ class FakeWorkflowRepository:
 
     def append_run_log(self, **kwargs) -> None:
         del kwargs
+
+    def reconcile_entity_deletions(self, **kwargs) -> int:
+        self.reconcile_calls.append(kwargs)
+        return self.reconciled_deleted_total
 
     def fetch_olist_settings(self) -> dict[str, str]:
         return {}
@@ -236,6 +244,7 @@ class WorkflowRunnerTests(unittest.TestCase):
 
         result = runner.run_workflow(
             execution_id="exec-1",
+            execution_type="incremental",
             tenant_id="tenant-1",
             workflow=self._build_incremental_workflow(),
         )
@@ -260,6 +269,7 @@ class WorkflowRunnerTests(unittest.TestCase):
         with patch("backend.olist_extraction.extract.utc_now", side_effect=[started_at, finished_at]):
             result = runner.run_workflow(
                 execution_id="exec-2",
+                execution_type="incremental",
                 tenant_id="tenant-1",
                 workflow=self._build_incremental_workflow(),
             )
@@ -288,6 +298,7 @@ class WorkflowRunnerTests(unittest.TestCase):
 
         result = runner.run_workflow(
             execution_id="exec-3",
+            execution_type="incremental",
             tenant_id="tenant-1",
             workflow=self._build_incremental_workflow(),
         )
@@ -346,6 +357,243 @@ class WorkflowRunnerTests(unittest.TestCase):
         self.assertEqual(latest_progress["details"]["currentEndpointPath"], "/contatos/{idContato}")
         runner._log.assert_called_once()
         self.assertEqual(runner._log.call_args.kwargs["stage"], "heartbeat")
+
+    def test_build_query_params_formats_orders_watermark_as_br_datetime(self) -> None:
+        self.repository.watermark = datetime(2026, 6, 28, 6, 14, 13, tzinfo=timezone.utc)
+        runner = self._build_runner()
+        step = EndpointStep(
+            name="orders.list",
+            endpoint_path="/pedidos",
+            pagination=True,
+            incremental=IncrementalStrategy(mode="watermark", start_param="dataAtualizacao", datetime_format="br"),
+        )
+
+        params = runner._build_query_params(step, "tenant-1", "orders", "incremental")
+
+        self.assertEqual(params["dataAtualizacao"], "28/06/2026 06:14:13")
+
+    def test_build_query_params_reconciliation_ignores_watermark_filter(self) -> None:
+        self.repository.watermark = datetime(2026, 6, 28, 6, 14, 13, tzinfo=timezone.utc)
+        runner = self._build_runner()
+        step = EndpointStep(
+            name="orders.list",
+            endpoint_path="/pedidos",
+            pagination=True,
+            incremental=IncrementalStrategy(mode="watermark", start_param="dataAtualizacao", datetime_format="br"),
+        )
+
+        params = runner._build_query_params(step, "tenant-1", "orders", "reconciliation")
+
+        self.assertEqual(params, {})
+
+    def test_optional_http_error_does_not_fail_entity(self) -> None:
+        runner = self._build_runner()
+        runner.client = Mock()
+        runner._log = Mock()
+        runner.client.request_json = Mock(
+            side_effect=[
+                (
+                    {
+                        "items": [
+                            {"id": 10, "dataAlteracao": "2026-06-28 01:00:00"},
+                        ]
+                    },
+                    {},
+                ),
+                requests.HTTPError(
+                    "404 Client Error",
+                    response=build_response(404, payload={"message": "Nao encontrado"}),
+                ),
+            ]
+        )
+
+        workflow = Workflow(
+            entity_name="products",
+            root_step="products.list",
+            steps=(
+                EndpointStep(
+                    name="products.list",
+                    endpoint_path="/produtos",
+                    pagination=True,
+                    incremental=IncrementalStrategy(mode="watermark", start_param="dataAlteracao"),
+                    record_id_keys=("id",),
+                    updated_at_keys=("dataAlteracao",),
+                ),
+                EndpointStep(
+                    name="products.fabricated",
+                    endpoint_path="/produtos/{idProduto}/fabricado",
+                    source_step="products.list",
+                    path_params={"idProduto": ("record_id", "id")},
+                    singleton=True,
+                    ignore_http_statuses=(404,),
+                ),
+            ),
+        )
+
+        result = runner.run_workflow(
+            execution_id="exec-5",
+            execution_type="incremental",
+            tenant_id="tenant-1",
+            workflow=workflow,
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["errorCount"], 0)
+        warning_logs = [call.kwargs for call in runner._log.call_args_list if call.kwargs.get("level") == "WARNING"]
+        self.assertEqual(len(warning_logs), 1)
+        self.assertIn("Etapa opcional products.fabricated ignorada", warning_logs[0]["message"])
+
+    def test_optional_kit_http_400_does_not_fail_entity(self) -> None:
+        runner = self._build_runner()
+        runner.client = Mock()
+        runner._log = Mock()
+        runner.client.request_json = Mock(
+            side_effect=[
+                (
+                    {
+                        "items": [
+                            {"id": 10, "dataAlteracao": "2026-06-28 01:00:00"},
+                        ]
+                    },
+                    {},
+                ),
+                requests.HTTPError(
+                    "400 Client Error",
+                    response=build_response(400, payload={"mensagem": "Produto nao possui composicao de kit"}),
+                ),
+            ]
+        )
+
+        workflow = Workflow(
+            entity_name="products",
+            root_step="products.list",
+            steps=(
+                EndpointStep(
+                    name="products.list",
+                    endpoint_path="/produtos",
+                    pagination=True,
+                    incremental=IncrementalStrategy(mode="watermark", start_param="dataAlteracao"),
+                    record_id_keys=("id",),
+                    updated_at_keys=("dataAlteracao",),
+                ),
+                EndpointStep(
+                    name="products.kit",
+                    endpoint_path="/produtos/{idProduto}/kit",
+                    source_step="products.list",
+                    path_params={"idProduto": ("record_id", "id")},
+                    singleton=True,
+                    ignore_http_statuses=(400,),
+                ),
+            ),
+        )
+
+        result = runner.run_workflow(
+            execution_id="exec-5b",
+            execution_type="incremental",
+            tenant_id="tenant-1",
+            workflow=workflow,
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["errorCount"], 0)
+        warning_logs = [call.kwargs for call in runner._log.call_args_list if call.kwargs.get("level") == "WARNING"]
+        self.assertEqual(len(warning_logs), 1)
+        self.assertIn("Etapa opcional products.kit ignorada", warning_logs[0]["message"])
+
+    def test_optional_invalid_json_does_not_fail_entity(self) -> None:
+        runner = self._build_runner()
+        runner.client = Mock()
+        runner._log = Mock()
+        runner.client.request_json = Mock(
+            side_effect=[
+                (
+                    {
+                        "items": [
+                            {"id": 11, "dataEmissao": "2026-06-28 01:00:00"},
+                        ]
+                    },
+                    {},
+                ),
+                OlistInvalidJsonError(
+                    endpoint_path="/contas-receber/11/recebimentos",
+                    status_code=200,
+                    response_text="",
+                    response_headers={"Content-Type": "text/plain"},
+                ),
+            ]
+        )
+
+        workflow = Workflow(
+            entity_name="accounts_receivable",
+            root_step="accounts_receivable.list",
+            steps=(
+                EndpointStep(
+                    name="accounts_receivable.list",
+                    endpoint_path="/contas-receber",
+                    pagination=True,
+                    incremental=IncrementalStrategy(
+                        mode="date_range",
+                        start_param="dataInicialEmissao",
+                        end_param="dataFinalEmissao",
+                    ),
+                    record_id_keys=("id",),
+                ),
+                EndpointStep(
+                    name="accounts_receivable.receipts",
+                    endpoint_path="/contas-receber/{idContaReceber}/recebimentos",
+                    source_step="accounts_receivable.list",
+                    path_params={"idContaReceber": ("record_id", "id")},
+                    ignore_invalid_json=True,
+                ),
+            ),
+        )
+
+        result = runner.run_workflow(
+            execution_id="exec-6",
+            execution_type="incremental",
+            tenant_id="tenant-1",
+            workflow=workflow,
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["errorCount"], 0)
+        warning_logs = [call.kwargs for call in runner._log.call_args_list if call.kwargs.get("level") == "WARNING"]
+        self.assertEqual(len(warning_logs), 1)
+        self.assertIn("Etapa opcional accounts_receivable.receipts ignorada", warning_logs[0]["message"])
+
+    def test_reconciliation_marks_absent_records_as_deleted(self) -> None:
+        runner = self._build_runner()
+        self.repository.reconciled_deleted_total = 3
+        runner.client = Mock()
+        runner.client.request_json = Mock(return_value=({"items": [{"id": 1}]}, {}))
+
+        workflow = Workflow(
+            entity_name="products",
+            root_step="products.list",
+            steps=(
+                EndpointStep(
+                    name="products.list",
+                    endpoint_path="/produtos",
+                    pagination=True,
+                    incremental=IncrementalStrategy(mode="watermark", start_param="dataAlteracao"),
+                    record_id_keys=("id",),
+                    updated_at_keys=("dataAlteracao",),
+                ),
+            ),
+        )
+
+        result = runner.run_workflow(
+            execution_id="exec-7",
+            execution_type="reconciliation",
+            tenant_id="tenant-1",
+            workflow=workflow,
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(len(self.repository.reconcile_calls), 1)
+        self.assertEqual(self.repository.reconcile_calls[0]["execution_id"], "exec-7")
+        self.assertIsNone(self.repository.saved_watermark)
+        self.assertEqual(self.repository.finished_runs[-1]["details"]["reconciledDeletedCount"], 3)
 
 
 class ExtractionServiceTests(unittest.TestCase):

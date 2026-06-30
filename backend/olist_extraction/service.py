@@ -87,7 +87,7 @@ class ExtractionService:
             "recentExecutions": recent_executions,
         }
 
-    def start_full_sync(self, *, user_id: str, actor_email: str) -> dict[str, Any]:
+    def start_execution(self, *, user_id: str, actor_email: str, execution_type: str) -> dict[str, Any]:
         repository = self._get_repository()
         tenant_id = self.ensure_ready(user_id)
         settings = repository.fetch_olist_settings() or {}
@@ -134,7 +134,10 @@ class ExtractionService:
 
         repository.append_audit(
             "Extração iniciada",
-            f"O usuário {actor_email} iniciou a sincronização completa da API Olist para o Supabase.",
+            (
+                f"O usuário {actor_email} iniciou a execução {execution_type} da sincronização "
+                "da API Olist para o Supabase."
+            ),
             "accent",
         )
         if recovered_execution_ids:
@@ -154,6 +157,7 @@ class ExtractionService:
                 "tenant_id": tenant_id,
                 "access_token": access_token,
                 "actor_email": actor_email,
+                "execution_type": execution_type,
             },
             daemon=True,
         )
@@ -161,8 +165,11 @@ class ExtractionService:
         return {
             "status": "started",
             "executionId": execution_id,
-            "detail": "A sincronização completa foi iniciada em background.",
+            "detail": f"A execução {execution_type} foi iniciada em background.",
         }
+
+    def start_full_sync(self, *, user_id: str, actor_email: str) -> dict[str, Any]:
+        return self.start_execution(user_id=user_id, actor_email=actor_email, execution_type="incremental")
 
     def request_stop(self, *, actor_email: str) -> dict[str, Any]:
         del actor_email
@@ -210,6 +217,7 @@ class ExtractionService:
         tenant_id: str,
         access_token: str,
         actor_email: str,
+        execution_type: str,
     ) -> None:
         repository = self._get_repository()
         runner = WorkflowRunner(
@@ -229,6 +237,7 @@ class ExtractionService:
                     break
                 result = runner.run_workflow(
                     execution_id=execution_id,
+                    execution_type=execution_type,
                     tenant_id=tenant_id,
                     workflow=workflow,
                 )
@@ -243,12 +252,12 @@ class ExtractionService:
             tone = "warning" if stopped else ("success" if error_total == 0 else "danger")
             title = "Extração interrompida" if stopped else "Extração concluída"
             detail = (
-                f"A sincronização solicitada por {actor_email} foi interrompida com "
+                f"A execução {execution_type} solicitada por {actor_email} foi interrompida com "
                 f"{success_total} entidades bem-sucedidas, {error_total} com erro "
                 f"em {duration_seconds:.2f}s."
                 if stopped
                 else (
-                    f"A sincronização solicitada por {actor_email} terminou com "
+                    f"A execução {execution_type} solicitada por {actor_email} terminou com "
                     f"{success_total} entidades bem-sucedidas, {error_total} com erro "
                     f"em {duration_seconds:.2f}s."
                 )

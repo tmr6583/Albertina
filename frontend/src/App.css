@@ -408,9 +408,10 @@
 }
 
 .ghost-button.success {
-  color: #dff7ff;
-  border-color: rgba(35, 195, 255, 0.28);
-  background: rgba(35, 195, 255, 0.12);
+  color: #0f3a89;
+  border-color: rgba(15, 58, 137, 0.22);
+  background: #ffffff;
+  box-shadow: 0 10px 18px rgba(15, 58, 137, 0.08);
 }
 
 .primary-button:hover,
@@ -739,7 +740,7 @@
 }
 
 .extraction-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
 }
 
 .extraction-hero-panel {
@@ -852,6 +853,37 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
+}
+
+.extraction-history-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.extraction-coverage-panel {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 14px;
+}
+
+.extraction-coverage-panel .panel-header.compact {
+  margin-bottom: 12px;
+}
+
+.extraction-coverage-panel .detail-list {
+  gap: 8px;
+}
+
+.extraction-coverage-panel .detail-list li {
+  padding-left: 1rem;
+  line-height: 1.12;
+}
+
+.extraction-coverage-panel .detail-list li::before {
+  top: 0.38rem;
+  width: 7px;
+  height: 7px;
 }
 
 .extraction-progress-content {
@@ -1005,9 +1037,13 @@
   gap: 0.55rem;
 }
 
+.extraction-executive-block.is-full-width {
+  grid-column: 1 / -1;
+}
+
 .extraction-executive-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1226,7 +1262,7 @@
 
 .extraction-run-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 5px;
 }
 

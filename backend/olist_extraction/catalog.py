@@ -8,6 +8,7 @@ class IncrementalStrategy:
     mode: str
     start_param: str
     end_param: str | None = None
+    datetime_format: str = "iso"
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,8 @@ class EndpointStep:
     extra_params: dict[str, str] = field(default_factory=dict)
     singleton: bool = False
     only_if_changed: bool = False
+    ignore_http_statuses: tuple[int, ...] = ()
+    ignore_invalid_json: bool = False
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,7 @@ class Workflow:
 
 
 WATERMARK_UPDATED = IncrementalStrategy(mode="watermark", start_param="dataAtualizacao")
+WATERMARK_UPDATED_BR = IncrementalStrategy(mode="watermark", start_param="dataAtualizacao", datetime_format="br")
 WATERMARK_CHANGED = IncrementalStrategy(mode="watermark", start_param="dataAlteracao")
 DATE_RANGE_EMISSAO = IncrementalStrategy(mode="date_range", start_param="dataInicialEmissao", end_param="dataFinalEmissao")
 
@@ -281,6 +285,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 source_step="products.list",
                 path_params={"idProduto": ("record_id", "id", "idProduto")},
                 singleton=True,
+                ignore_http_statuses=(404,),
             ),
             EndpointStep(
                 name="products.kit",
@@ -288,6 +293,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 source_step="products.list",
                 path_params={"idProduto": ("record_id", "id", "idProduto")},
                 singleton=True,
+                ignore_http_statuses=(400,),
             ),
             EndpointStep(
                 name="products.tags",
@@ -312,7 +318,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 name="orders.list",
                 endpoint_path="/pedidos",
                 pagination=True,
-                incremental=WATERMARK_UPDATED,
+                incremental=WATERMARK_UPDATED_BR,
                 record_id_keys=("id", "idPedido"),
                 updated_at_keys=("dataAtualizacao",),
             ),
@@ -362,6 +368,8 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 endpoint_path="/contas-receber/{idContaReceber}/recebimentos",
                 source_step="accounts_receivable.list",
                 path_params={"idContaReceber": ("record_id", "id", "idContaReceber")},
+                ignore_invalid_json=True,
+                ignore_http_statuses=(404,),
             ),
         ),
     ),
@@ -395,6 +403,8 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 endpoint_path="/contas-pagar/{idContaPagar}/recebimentos",
                 source_step="accounts_payable.list",
                 path_params={"idContaPagar": ("record_id", "id", "idContaPagar")},
+                ignore_invalid_json=True,
+                ignore_http_statuses=(404,),
             ),
         ),
     ),
@@ -430,6 +440,8 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 source_step="invoices.list",
                 path_params={"idNota": ("record_id", "id", "idNota")},
                 singleton=True,
+                ignore_http_statuses=(400, 404),
+                ignore_invalid_json=True,
             ),
             EndpointStep(
                 name="invoices.item_detail",
