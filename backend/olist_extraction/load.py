@@ -162,6 +162,12 @@ class ExtractionRepository:
             """,
             "ALTER TABLE olist_admin.sync_runs ADD COLUMN IF NOT EXISTS execution_id UUID NULL",
             "ALTER TABLE olist_admin.sync_runs ADD COLUMN IF NOT EXISTS execution_type TEXT NOT NULL DEFAULT 'incremental'",
+            "ALTER TABLE olist_admin.sync_runs DROP CONSTRAINT IF EXISTS sync_runs_mode_check",
+            (
+                "ALTER TABLE olist_admin.sync_runs "
+                "ADD CONSTRAINT sync_runs_mode_check "
+                "CHECK (sync_mode IN ('full', 'incremental', 'snapshot', 'reconciliation', 'cooldown'))"
+            ),
             """
             CREATE TABLE IF NOT EXISTS olist_admin.sync_watermarks (
               tenant_id UUID NOT NULL REFERENCES olist_admin.tenants(tenant_id) ON DELETE CASCADE,

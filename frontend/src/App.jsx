@@ -209,6 +209,24 @@ function labelFromExecutionType(executionType) {
   return executionType === 'reconciliation' ? 'Conciliação' : 'Incremental'
 }
 
+// #region debug-point extraction-ui-stall-reporting
+function reportExtractionDebug(hypothesisId, location, msg, data = {}) {
+  fetch('http://127.0.0.1:7777/event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: 'extraction-ui-stall',
+      runId: 'pre-fix',
+      hypothesisId,
+      location,
+      msg,
+      data,
+      ts: Date.now(),
+    }),
+  }).catch(() => {})
+}
+// #endregion
+
 function formatRequestsPerMinute(value) {
   if (!Number.isFinite(value) || value <= 0) {
     return 'Aguardando ritmo'
@@ -1981,7 +1999,7 @@ function App() {
       } catch {
         // Mantem a ultima visao renderizada enquanto a API nao responde.
       }
-    }, extractionOverview?.stopRequested ? 2000 : 3000)
+    }, 10000)
 
     return () => window.clearInterval(intervalId)
   }, [
@@ -1996,6 +2014,13 @@ function App() {
     setIsSubmitting(true)
     try {
       const overview = await apiRequest('/extraction/overview')
+      // #region debug-point D:manual-refresh
+      reportExtractionDebug('D', 'frontend/src/App.jsx:handleRefreshExtraction', '[DEBUG] manual overview refresh resolved', {
+        running: Boolean(overview?.running),
+        activeExecutionId: overview?.activeExecutionId ?? null,
+        hasActiveExecution: Boolean(overview?.activeExecution),
+      })
+      // #endregion
       setExtractionOverview(overview)
       showPageFeedback('Status da extração atualizado.', 'success')
     } catch (error) {
@@ -2011,11 +2036,35 @@ function App() {
   async function handleStartExtraction(executionType) {
     setIsSubmitting(true)
     try {
+      // #region debug-point E:start-click
+      reportExtractionDebug('E', 'frontend/src/App.jsx:handleStartExtraction', '[DEBUG] start button clicked', {
+        executionType,
+        previousRunning: Boolean(extractionOverview?.running),
+        previousActiveExecutionId: extractionOverview?.activeExecutionId ?? null,
+      })
+      // #endregion
       const response = await apiRequest('/extraction/run', {
         method: 'POST',
         body: JSON.stringify({ executionType }),
       })
+      // #region debug-point E:start-response
+      reportExtractionDebug('E', 'frontend/src/App.jsx:handleStartExtraction', '[DEBUG] run endpoint resolved', {
+        executionType,
+        responseStatus: response?.status ?? null,
+        responseExecutionId: response?.executionId ?? null,
+        responseDetail: response?.detail ?? null,
+      })
+      // #endregion
       const overview = await apiRequest('/extraction/overview')
+      // #region debug-point E:overview-after-start
+      reportExtractionDebug('E', 'frontend/src/App.jsx:handleStartExtraction', '[DEBUG] overview fetched after start', {
+        executionType,
+        running: Boolean(overview?.running),
+        activeExecutionId: overview?.activeExecutionId ?? null,
+        hasActiveExecution: Boolean(overview?.activeExecution),
+        activeExecutionType: overview?.activeExecution?.executionType ?? null,
+      })
+      // #endregion
       setExtractionOverview(overview)
       showPageFeedback(
         response.detail ?? 'Extração iniciada com sucesso.',

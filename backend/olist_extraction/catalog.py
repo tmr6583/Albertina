@@ -6,9 +6,11 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True)
 class IncrementalStrategy:
     mode: str
-    start_param: str
+    start_param: str | None = None
     end_param: str | None = None
     datetime_format: str = "iso"
+    cooldown_hours: int | None = None
+    overlap_days: int = 0
 
 
 @dataclass(frozen=True)
@@ -41,35 +43,53 @@ class Workflow:
 WATERMARK_UPDATED = IncrementalStrategy(mode="watermark", start_param="dataAtualizacao")
 WATERMARK_UPDATED_BR = IncrementalStrategy(mode="watermark", start_param="dataAtualizacao", datetime_format="br")
 WATERMARK_CHANGED = IncrementalStrategy(mode="watermark", start_param="dataAlteracao")
-DATE_RANGE_EMISSAO = IncrementalStrategy(mode="date_range", start_param="dataInicialEmissao", end_param="dataFinalEmissao")
+DATE_RANGE_EMISSAO = IncrementalStrategy(
+    mode="date_range",
+    start_param="dataInicialEmissao",
+    end_param="dataFinalEmissao",
+    overlap_days=3,
+)
+DATE_RANGE_CREATED = IncrementalStrategy(
+    mode="date_range",
+    start_param="dataInicial",
+    end_param="dataFinal",
+    overlap_days=3,
+)
+COOLDOWN_24H = IncrementalStrategy(mode="cooldown", cooldown_hours=24)
 
 
 WORKFLOWS: tuple[Workflow, ...] = (
     Workflow(
         entity_name="company_info",
         root_step="company.info",
-        steps=(EndpointStep(name="company.info", endpoint_path="/info", singleton=True),),
+        steps=(EndpointStep(name="company.info", endpoint_path="/info", singleton=True, incremental=COOLDOWN_24H),),
     ),
     Workflow(
         entity_name="users",
         root_step="users.list",
-        steps=(EndpointStep(name="users.list", endpoint_path="/usuarios", pagination=False),),
+        steps=(EndpointStep(name="users.list", endpoint_path="/usuarios", pagination=False, incremental=COOLDOWN_24H),),
     ),
     Workflow(
         entity_name="vendors",
         root_step="vendors.list",
-        steps=(EndpointStep(name="vendors.list", endpoint_path="/vendedores", pagination=False),),
+        steps=(EndpointStep(name="vendors.list", endpoint_path="/vendedores", pagination=False, incremental=COOLDOWN_24H),),
     ),
     Workflow(
         entity_name="brands",
         root_step="brands.list",
-        steps=(EndpointStep(name="brands.list", endpoint_path="/marcas", pagination=False),),
+        steps=(EndpointStep(name="brands.list", endpoint_path="/marcas", pagination=False, incremental=COOLDOWN_24H),),
     ),
     Workflow(
         entity_name="categories",
         root_step="categories.tree",
         steps=(
-            EndpointStep(name="categories.tree", endpoint_path="/categorias/todas", pagination=False, item_keys=("itens", "items")),
+            EndpointStep(
+                name="categories.tree",
+                endpoint_path="/categorias/todas",
+                pagination=False,
+                item_keys=("itens", "items"),
+                incremental=COOLDOWN_24H,
+            ),
             EndpointStep(
                 name="categories.detail",
                 endpoint_path="/categorias/{idCategoria}",
@@ -88,6 +108,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 name="financial_categories.list",
                 endpoint_path="/categorias-receita-despesa",
                 pagination=True,
+                incremental=COOLDOWN_24H,
                 record_id_keys=("id",),
             ),
         ),
@@ -141,7 +162,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="payment_methods",
         root_step="payment_methods.list",
         steps=(
-            EndpointStep(name="payment_methods.list", endpoint_path="/formas-pagamento", pagination=False, record_id_keys=("id",)),
+            EndpointStep(
+                name="payment_methods.list",
+                endpoint_path="/formas-pagamento",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id",),
+            ),
             EndpointStep(
                 name="payment_methods.detail",
                 endpoint_path="/formas-pagamento/{idFormaPagamento}",
@@ -156,7 +183,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="receipt_methods",
         root_step="receipt_methods.list",
         steps=(
-            EndpointStep(name="receipt_methods.list", endpoint_path="/formas-recebimento", pagination=False, record_id_keys=("id",)),
+            EndpointStep(
+                name="receipt_methods.list",
+                endpoint_path="/formas-recebimento",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id",),
+            ),
             EndpointStep(
                 name="receipt_methods.detail",
                 endpoint_path="/formas-recebimento/{idFormaRecebimento}",
@@ -171,7 +204,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="shipping_methods",
         root_step="shipping_methods.list",
         steps=(
-            EndpointStep(name="shipping_methods.list", endpoint_path="/formas-envio", pagination=False, record_id_keys=("id",)),
+            EndpointStep(
+                name="shipping_methods.list",
+                endpoint_path="/formas-envio",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id",),
+            ),
             EndpointStep(
                 name="shipping_methods.detail",
                 endpoint_path="/formas-envio/{idFormaEnvio}",
@@ -186,7 +225,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="deposits",
         root_step="deposits.list",
         steps=(
-            EndpointStep(name="deposits.list", endpoint_path="/depositos", pagination=False, record_id_keys=("id",)),
+            EndpointStep(
+                name="deposits.list",
+                endpoint_path="/depositos",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id",),
+            ),
             EndpointStep(
                 name="deposits.detail",
                 endpoint_path="/depositos/{idDeposito}",
@@ -201,7 +246,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="intermediators",
         root_step="intermediators.list",
         steps=(
-            EndpointStep(name="intermediators.list", endpoint_path="/intermediadores", pagination=False, record_id_keys=("id",)),
+            EndpointStep(
+                name="intermediators.list",
+                endpoint_path="/intermediadores",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id",),
+            ),
             EndpointStep(
                 name="intermediators.detail",
                 endpoint_path="/intermediadores/{idIntermediador}",
@@ -216,7 +267,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="price_lists",
         root_step="price_lists.list",
         steps=(
-            EndpointStep(name="price_lists.list", endpoint_path="/listas-precos", pagination=False, record_id_keys=("id",)),
+            EndpointStep(
+                name="price_lists.list",
+                endpoint_path="/listas-precos",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id",),
+            ),
             EndpointStep(
                 name="price_lists.detail",
                 endpoint_path="/listas-precos/{idListaDePreco}",
@@ -231,7 +288,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="services",
         root_step="services.list",
         steps=(
-            EndpointStep(name="services.list", endpoint_path="/servicos", pagination=False, record_id_keys=("id",)),
+            EndpointStep(
+                name="services.list",
+                endpoint_path="/servicos",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id",),
+            ),
             EndpointStep(
                 name="services.detail",
                 endpoint_path="/servicos/{idServico}",
@@ -245,12 +308,28 @@ WORKFLOWS: tuple[Workflow, ...] = (
     Workflow(
         entity_name="tag_groups",
         root_step="tag_groups.list",
-        steps=(EndpointStep(name="tag_groups.list", endpoint_path="/grupos-tags", pagination=False, record_id_keys=("id",)),),
+        steps=(
+            EndpointStep(
+                name="tag_groups.list",
+                endpoint_path="/grupos-tags",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id",),
+            ),
+        ),
     ),
     Workflow(
         entity_name="product_tags",
         root_step="product_tags.list",
-        steps=(EndpointStep(name="product_tags.list", endpoint_path="/tags", pagination=False, record_id_keys=("id",)),),
+        steps=(
+            EndpointStep(
+                name="product_tags.list",
+                endpoint_path="/tags",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id",),
+            ),
+        ),
     ),
     Workflow(
         entity_name="products",
@@ -412,7 +491,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="invoices",
         root_step="invoices.list",
         steps=(
-            EndpointStep(name="invoices.list", endpoint_path="/notas", pagination=True, record_id_keys=("id", "idNota")),
+            EndpointStep(
+                name="invoices.list",
+                endpoint_path="/notas",
+                pagination=True,
+                incremental=DATE_RANGE_CREATED,
+                record_id_keys=("id", "idNota"),
+            ),
             EndpointStep(
                 name="invoices.detail",
                 endpoint_path="/notas/{idNota}",
@@ -461,7 +546,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="shipments",
         root_step="shipments.list",
         steps=(
-            EndpointStep(name="shipments.list", endpoint_path="/expedicao", pagination=True, record_id_keys=("id", "idAgrupamento")),
+            EndpointStep(
+                name="shipments.list",
+                endpoint_path="/expedicao",
+                pagination=True,
+                incremental=DATE_RANGE_CREATED,
+                record_id_keys=("id", "idAgrupamento"),
+            ),
             EndpointStep(
                 name="shipments.detail",
                 endpoint_path="/expedicao/{idAgrupamento}",
@@ -495,7 +586,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="separations",
         root_step="separations.list",
         steps=(
-            EndpointStep(name="separations.list", endpoint_path="/separacao", pagination=True, record_id_keys=("id", "idSeparacao")),
+            EndpointStep(
+                name="separations.list",
+                endpoint_path="/separacao",
+                pagination=True,
+                incremental=DATE_RANGE_CREATED,
+                record_id_keys=("id", "idSeparacao"),
+            ),
             EndpointStep(
                 name="separations.detail",
                 endpoint_path="/separacao/{idSeparacao}",
@@ -510,7 +607,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="crm_stages",
         root_step="crm.stages",
         steps=(
-            EndpointStep(name="crm.stages", endpoint_path="/crm/estagios", pagination=False, record_id_keys=("id", "idEstagio")),
+            EndpointStep(
+                name="crm.stages",
+                endpoint_path="/crm/estagios",
+                pagination=False,
+                incremental=COOLDOWN_24H,
+                record_id_keys=("id", "idEstagio"),
+            ),
             EndpointStep(
                 name="crm.stage_detail",
                 endpoint_path="/crm/estagios/{idEstagio}",
@@ -578,7 +681,13 @@ WORKFLOWS: tuple[Workflow, ...] = (
         entity_name="purchase_orders",
         root_step="purchase_orders.list",
         steps=(
-            EndpointStep(name="purchase_orders.list", endpoint_path="/ordem-compra", pagination=True, record_id_keys=("id", "idOrdemCompra")),
+            EndpointStep(
+                name="purchase_orders.list",
+                endpoint_path="/ordem-compra",
+                pagination=True,
+                incremental=DATE_RANGE_CREATED,
+                record_id_keys=("id", "idOrdemCompra"),
+            ),
             EndpointStep(
                 name="purchase_orders.detail",
                 endpoint_path="/ordem-compra/{idOrdemCompra}",
@@ -623,6 +732,14 @@ WORKFLOWS: tuple[Workflow, ...] = (
         ),
     ),
 )
+
+
+def get_root_step(workflow: Workflow) -> EndpointStep:
+    return next(step for step in workflow.steps if step.name == workflow.root_step)
+
+
+def list_non_incremental_workflows(workflows: tuple[Workflow, ...] = WORKFLOWS) -> list[Workflow]:
+    return [workflow for workflow in workflows if get_root_step(workflow).incremental is None]
 
 
 WORKFLOW_BY_ENTITY = {workflow.entity_name: workflow for workflow in WORKFLOWS}

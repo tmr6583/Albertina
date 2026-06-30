@@ -29,6 +29,7 @@ Modo operacional do dia a dia, acionado pelo botao `Incremental`.
 Comportamento:
 
 - usa watermark e filtros incrementais quando a API documenta `dataAtualizacao`, `dataAlteracao` ou janela equivalente
+- usa `cooldown` local para entidades de baixa variacao que nao possuem filtro incremental nativo documentado
 - continua fazendo `upsert` de novos e alterados na camada RAW
 - nao marca ausencias como deletadas
 - limpa marcacao de exclusao quando um registro reaparece
@@ -36,7 +37,7 @@ Comportamento:
 
 Observacao:
 
-- para entidades sem filtro incremental documental, o sistema pode executar uma leitura snapshot leve para manter a base atualizada, mas sem prometer deteccao de delecao nesse modo
+- para entidades sem filtro incremental documental, o sistema passa a usar uma estrategia incremental baseada em `cooldown`, evitando revarredura a cada clique
 
 ### 2. Conciliacao
 
@@ -97,7 +98,7 @@ Objetivo:
 
 - `watermark`: usa a data salva por entidade
 - `date_range`: usa a janela incremental atual
-- sem suporte incremental documental: executa snapshot leve sem tratar ausencia como delete
+- `cooldown`: reaproveita a ultima sincronizacao recente e so reconsulta a entidade quando a janela local expira
 
 ### Conciliacao
 

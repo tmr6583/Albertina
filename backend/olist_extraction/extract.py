@@ -253,7 +253,17 @@ class OlistApiClient:
     ) -> dict[str, Any] | None:
         if not isinstance(exc, requests.HTTPError) or exc.response is None or exc.response.status_code != 400:
             return None
-        if not request_params or "dataInicialEmissao" not in request_params:
+        if not request_params:
+            return None
+        start_param = next(
+            (
+                key
+                for key in request_params
+                if isinstance(key, str) and key.startswith("dataInicial")
+            ),
+            None,
+        )
+        if start_param is None:
             return None
 
         raw_text = exc.response.text or ""
@@ -268,7 +278,7 @@ class OlistApiClient:
 
         allowed_start = datetime.strptime(match.group(1), "%d/%m/%Y").date().isoformat()
         adjusted_params = dict(request_params)
-        adjusted_params["dataInicialEmissao"] = allowed_start
+        adjusted_params[start_param] = allowed_start
         return adjusted_params
 
     def _respect_rate_limit(self, headers: dict[str, str]) -> None:
@@ -342,6 +352,7 @@ class WorkflowRunner:
         started_at = utc_now()
         next_watermark = started_at if root_step.incremental else None
         reconciled_deleted_count = 0
+        skipped_due_to_cooldown = False
         heartbeat_stop = threading.Event()
         self._debug_state = {"entity": workflow.entity_name, "step": "workflow.start", "sourceIndex": 0, "sourceTotal": 0}
         heartbeat_thread = threading.Thread(
@@ -369,43 +380,63 @@ class WorkflowRunner:
         )
 
         try:
-            for step in workflow.steps:
-                self._ensure_not_stopped(workflow.entity_name)
-                step_contexts = self._resolve_step_contexts(step, contexts_by_step)
-                extracted_contexts = self._execute_step(
-                    execution_id=execution_id,
-                    sync_run_id=sync_run_id,
-                    tenant_id=tenant_id,
-                    entity_name=workflow.entity_name,
-                    execution_type=execution_type,
-                    step=step,
-                    source_contexts=step_contexts,
-                    counters=counters,
-                )
-                contexts_by_step[step.name] = extracted_contexts
-                if execution_type != "reconciliation" and root_step.incremental and step.name == root_step.name:
-                    next_watermark = self._resolve_next_watermark(extracted_contexts, started_at)
-
-            if execution_type == "reconciliation":
-                reconciled_deleted_count = self.repository.reconcile_entity_deletions(
-                    execution_id=execution_id,
-                    tenant_id=tenant_id,
-                    entity_name=workflow.entity_name,
-                )
+            if execution_type == "incremental" and self._should_skip_workflow_due_to_cooldown(root_step, watermark_from):
+                skipped_due_to_cooldown = True
                 self._log(
                     execution_id=execution_id,
                     sync_run_id=sync_run_id,
                     tenant_id=tenant_id,
                     entity_name=workflow.entity_name,
                     level="INFO",
-                    stage="reconciliation",
+                    stage="cooldown",
                     message=(
-                        f"Conciliação da entidade {workflow.entity_name} concluída. "
-                        f"Registros marcados como deletados: {reconciled_deleted_count}."
+                        f"Entidade {workflow.entity_name} ignorada nesta execução incremental "
+                        "por estar dentro da janela de cooldown."
                     ),
                 )
-            elif root_step.incremental:
-                self.repository.save_watermark(tenant_id, workflow.entity_name, root_step.endpoint_path, next_watermark or started_at)
+            else:
+                for step in workflow.steps:
+                    self._ensure_not_stopped(workflow.entity_name)
+                    step_contexts = self._resolve_step_contexts(step, contexts_by_step)
+                    extracted_contexts = self._execute_step(
+                        execution_id=execution_id,
+                        sync_run_id=sync_run_id,
+                        tenant_id=tenant_id,
+                        entity_name=workflow.entity_name,
+                        execution_type=execution_type,
+                        step=step,
+                        source_contexts=step_contexts,
+                        counters=counters,
+                    )
+                    contexts_by_step[step.name] = extracted_contexts
+                    if execution_type != "reconciliation" and root_step.incremental and step.name == root_step.name:
+                        next_watermark = self._resolve_next_watermark(extracted_contexts, started_at)
+
+                if execution_type == "reconciliation":
+                    reconciled_deleted_count = self.repository.reconcile_entity_deletions(
+                        execution_id=execution_id,
+                        tenant_id=tenant_id,
+                        entity_name=workflow.entity_name,
+                    )
+                    self._log(
+                        execution_id=execution_id,
+                        sync_run_id=sync_run_id,
+                        tenant_id=tenant_id,
+                        entity_name=workflow.entity_name,
+                        level="INFO",
+                        stage="reconciliation",
+                        message=(
+                            f"Conciliação da entidade {workflow.entity_name} concluída. "
+                            f"Registros marcados como deletados: {reconciled_deleted_count}."
+                        ),
+                    )
+                elif root_step.incremental:
+                    self.repository.save_watermark(
+                        tenant_id,
+                        workflow.entity_name,
+                        root_step.endpoint_path,
+                        next_watermark or started_at,
+                    )
         except ExtractionStopped:
             status = "cancelled"
             self._log(
@@ -444,6 +475,7 @@ class WorkflowRunner:
                 "insertedCount": counters.inserted,
                 "updatedCount": counters.updated,
                 "reconciledDeletedCount": reconciled_deleted_count if status == "success" else 0,
+                "skippedDueToCooldown": skipped_due_to_cooldown,
             }
             self.repository.finish_sync_run(
                 sync_run_id=sync_run_id,
@@ -472,6 +504,7 @@ class WorkflowRunner:
                     duration_seconds=duration_seconds,
                     execution_type=execution_type,
                     reconciled_deleted_count=details["reconciledDeletedCount"],
+                    skipped_due_to_cooldown=skipped_due_to_cooldown,
                 ),
                 extracted_count=counters.extracted,
                 inserted_count=counters.inserted,
@@ -706,12 +739,16 @@ class WorkflowRunner:
             return params
 
         watermark = self.repository.get_watermark(tenant_id, entity_name, step.endpoint_path)
+        if step.incremental.mode == "cooldown":
+            return params
         if step.incremental.mode == "watermark":
             formatted = self._format_incremental_watermark(watermark, step.incremental.datetime_format)
             if formatted:
                 params[step.incremental.start_param] = formatted
         elif step.incremental.mode == "date_range":
             start_reference = watermark or (utc_now() - timedelta(days=3650))
+            if watermark is not None and step.incremental.overlap_days > 0:
+                start_reference = watermark - timedelta(days=step.incremental.overlap_days)
             start_value = format_incremental_date(start_reference)
             end_value = format_incremental_date(utc_now())
             if start_value:
@@ -882,8 +919,19 @@ class WorkflowRunner:
         if execution_type == "reconciliation":
             return "reconciliation"
         if root_step.incremental:
+            if root_step.incremental.mode == "cooldown":
+                return "cooldown"
             return "incremental"
         return "snapshot"
+
+    @staticmethod
+    def _should_skip_workflow_due_to_cooldown(root_step: EndpointStep, watermark_from: datetime | None) -> bool:
+        if root_step.incremental is None or root_step.incremental.mode != "cooldown":
+            return False
+        cooldown_hours = root_step.incremental.cooldown_hours
+        if cooldown_hours is None or watermark_from is None:
+            return False
+        return utc_now() < watermark_from + timedelta(hours=cooldown_hours)
 
     @staticmethod
     def _extract_source_status(record: Any) -> str | None:
@@ -1010,6 +1058,7 @@ class WorkflowRunner:
         duration_seconds: float,
         execution_type: str,
         reconciled_deleted_count: int,
+        skipped_due_to_cooldown: bool,
     ) -> str:
         prefix = "Execução interrompida" if status == "cancelled" else "Fim"
         base = (
@@ -1017,6 +1066,8 @@ class WorkflowRunner:
             f"inseridos={counters.inserted}, atualizados={counters.updated}, "
             f"tempo_total={duration_seconds:.2f}s."
         )
+        if skipped_due_to_cooldown and status == "success":
+            return f"{base} ignorada_por_cooldown=true."
         if execution_type == "reconciliation" and status == "success":
             return f"{base} deletados_conciliados={reconciled_deleted_count}."
         return base

@@ -1,15 +1,54 @@
 from __future__ import annotations
 
+import json
+import os
 import threading
+import urllib.request
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
-from .catalog import WORKFLOWS
+from .catalog import WORKFLOWS, list_non_incremental_workflows
 from .config import build_settings
 from .extract import WorkflowRunner
 from .load import ExtractionRepository, utc_now
 from .transform import parse_olist_datetime
+
+
+# #region debug-point extraction-ui-stall-reporting
+def _debug_report(hypothesis_id: str, location: str, msg: str, data: dict[str, Any] | None = None) -> None:
+    try:
+        debug_server_url = "http://127.0.0.1:7777/event"
+        debug_session_id = "extraction-ui-stall"
+        debug_env_path = os.path.join(".dbg", "extraction-ui-stall.env")
+        if os.path.exists(debug_env_path):
+            with open(debug_env_path, "r", encoding="utf-8") as debug_env_file:
+                for raw_line in debug_env_file:
+                    line = raw_line.strip()
+                    if line.startswith("DEBUG_SERVER_URL="):
+                        debug_server_url = line.split("=", 1)[1].strip() or debug_server_url
+                    elif line.startswith("DEBUG_SESSION_ID="):
+                        debug_session_id = line.split("=", 1)[1].strip() or debug_session_id
+        payload = {
+            "sessionId": debug_session_id,
+            "runId": "pre-fix",
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "msg": msg,
+            "data": data or {},
+            "ts": int(utc_now().timestamp() * 1000),
+        }
+        request = urllib.request.Request(
+            debug_server_url,
+            data=json.dumps(payload, default=str).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(request, timeout=2).read()
+    except Exception:
+        pass
+
+
+# #endregion
 
 
 class ExtractionService:
@@ -71,6 +110,21 @@ class ExtractionService:
         active_execution = None
         if active_execution_id:
             active_execution = self.get_execution(active_execution_id)
+        # #region debug-point A:overview-state
+        _debug_report(
+            "A",
+            "backend/olist_extraction/service.py:get_overview",
+            "[DEBUG] overview calculated",
+            {
+                "tenantId": tenant_id,
+                "runningExecutionId": self._running_execution_id,
+                "activeExecutionId": active_execution_id,
+                "hasActiveExecution": active_execution is not None,
+                "recentExecutionsCount": len(recent_executions),
+                "stopRequested": self._stop_event.is_set(),
+            },
+        )
+        # #endregion
         return {
             "tenantId": tenant_id,
             "running": active_execution_id is not None,
@@ -90,6 +144,14 @@ class ExtractionService:
     def start_execution(self, *, user_id: str, actor_email: str, execution_type: str) -> dict[str, Any]:
         repository = self._get_repository()
         tenant_id = self.ensure_ready(user_id)
+        if execution_type == "incremental":
+            non_incremental_entities = [workflow.entity_name for workflow in list_non_incremental_workflows()]
+            if non_incremental_entities:
+                raise RuntimeError(
+                    "A execução incremental não pode iniciar enquanto existirem entidades sem estratégia incremental configurada: "
+                    + ", ".join(non_incremental_entities)
+                    + "."
+                )
         settings = repository.fetch_olist_settings() or {}
         access_token = str(settings.get("access_token") or "").strip()
         refresh_token = str(settings.get("refresh_token") or "").strip()
@@ -108,6 +170,17 @@ class ExtractionService:
 
         with self._lock:
             if self._running_execution_id is not None:
+                # #region debug-point B:start-already-running
+                _debug_report(
+                    "B",
+                    "backend/olist_extraction/service.py:start_execution",
+                    "[DEBUG] start ignored because local execution already running",
+                    {
+                        "executionType": execution_type,
+                        "runningExecutionId": self._running_execution_id,
+                    },
+                )
+                # #endregion
                 return {
                     "status": "running",
                     "executionId": self._running_execution_id,
@@ -117,6 +190,17 @@ class ExtractionService:
             execution_lock_connection = repository.try_acquire_execution_lock()
             if execution_lock_connection is None:
                 active_execution_id = repository.fetch_active_execution_id()
+                # #region debug-point B:start-locked
+                _debug_report(
+                    "B",
+                    "backend/olist_extraction/service.py:start_execution",
+                    "[DEBUG] start blocked by advisory lock",
+                    {
+                        "executionType": execution_type,
+                        "activeExecutionId": active_execution_id,
+                    },
+                )
+                # #endregion
                 return {
                     "status": "running",
                     "executionId": active_execution_id,
@@ -131,6 +215,18 @@ class ExtractionService:
             self._running_execution_id = execution_id
             self._execution_lock_connection = execution_lock_connection
             self._stop_event.clear()
+            # #region debug-point B:start-accepted
+            _debug_report(
+                "B",
+                "backend/olist_extraction/service.py:start_execution",
+                "[DEBUG] start accepted and background thread prepared",
+                {
+                    "executionType": execution_type,
+                    "executionId": execution_id,
+                    "tenantId": tenant_id,
+                },
+            )
+            # #endregion
 
         repository.append_audit(
             "Extração iniciada",
@@ -165,7 +261,7 @@ class ExtractionService:
         return {
             "status": "started",
             "executionId": execution_id,
-            "detail": f"A execução {execution_type} foi iniciada em background.",
+            "detail": f"A execução {execution_type} foi iniciada.",
         }
 
     def start_full_sync(self, *, user_id: str, actor_email: str) -> dict[str, Any]:
@@ -231,6 +327,18 @@ class ExtractionService:
         stopped = False
         started_at = datetime.now()
         try:
+            # #region debug-point C:background-entry
+            _debug_report(
+                "C",
+                "backend/olist_extraction/service.py:_run_background",
+                "[DEBUG] background runner started",
+                {
+                    "executionId": execution_id,
+                    "executionType": execution_type,
+                    "tenantId": tenant_id,
+                },
+            )
+            # #endregion
             for workflow in WORKFLOWS:
                 if self._stop_event.is_set():
                     stopped = True
@@ -268,6 +376,20 @@ class ExtractionService:
                 tone,
             )
         finally:
+            # #region debug-point C:background-finally
+            _debug_report(
+                "C",
+                "backend/olist_extraction/service.py:_run_background",
+                "[DEBUG] background runner finalizing",
+                {
+                    "executionId": execution_id,
+                    "executionType": execution_type,
+                    "successTotal": success_total,
+                    "errorTotal": error_total,
+                    "stopped": stopped,
+                },
+            )
+            # #endregion
             with self._lock:
                 self._running_execution_id = None
                 self._stop_event.clear()
