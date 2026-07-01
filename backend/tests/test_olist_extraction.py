@@ -432,6 +432,24 @@ class WorkflowRunnerTests(unittest.TestCase):
 
         self.assertEqual(params, {})
 
+    def test_build_query_params_reconciliation_date_range_uses_open_history_start(self) -> None:
+        runner = self._build_runner()
+        step = EndpointStep(
+            name="invoices.list",
+            endpoint_path="/notas",
+            pagination=True,
+            incremental=IncrementalStrategy(
+                mode="date_range",
+                start_param="dataInicial",
+                end_param="dataFinal",
+            ),
+        )
+
+        params = runner._build_query_params(step, "tenant-1", "invoices", "reconciliation")
+
+        self.assertEqual(params["dataInicial"], "1900-01-01")
+        self.assertIn("dataFinal", params)
+
     def test_orders_list_falls_back_to_date_range_when_data_atualizacao_returns_400(self) -> None:
         self.repository.watermark = datetime(2026, 6, 28, 6, 14, 13, tzinfo=timezone.utc)
         runner = self._build_runner()
@@ -498,6 +516,24 @@ class WorkflowRunnerTests(unittest.TestCase):
         params = runner._build_query_params(step, "tenant-1", "invoices", "incremental")
 
         self.assertEqual(params["dataInicial"], "2026-06-25")
+        self.assertIn("dataFinal", params)
+
+    def test_build_query_params_date_range_without_watermark_uses_open_history_start(self) -> None:
+        runner = self._build_runner()
+        step = EndpointStep(
+            name="invoices.list",
+            endpoint_path="/notas",
+            pagination=True,
+            incremental=IncrementalStrategy(
+                mode="date_range",
+                start_param="dataInicial",
+                end_param="dataFinal",
+            ),
+        )
+
+        params = runner._build_query_params(step, "tenant-1", "invoices", "incremental")
+
+        self.assertEqual(params["dataInicial"], "1900-01-01")
         self.assertIn("dataFinal", params)
 
     def test_cooldown_incremental_skips_recent_workflow_without_requests(self) -> None:
@@ -824,6 +860,294 @@ class WorkflowRunnerTests(unittest.TestCase):
         self.assertEqual(len(warning_logs), 1)
         self.assertIn("Etapa opcional accounts_receivable.receipts ignorada", warning_logs[0]["message"])
 
+    def test_invoices_derived_steps_are_skipped_when_detail_is_unchanged(self) -> None:
+        runner = self._build_runner()
+        runner.client = Mock()
+        runner._log = Mock()
+        runner.client.request_json = Mock(
+            side_effect=[
+                (
+                    {
+                        "items": [
+                            {"idNota": 100, "dataCriacao": "2026-06-28 01:00:00"},
+                        ]
+                    },
+                    {},
+                ),
+                (
+                    {
+                        "idNota": 100,
+                        "itens": [{"idItem": 501}],
+                    },
+                    {},
+                ),
+            ]
+        )
+        runner.repository.upsert_raw_payload = Mock(
+            side_effect=[
+                UpsertResult(inserted=1, updated=0),
+                UpsertResult(inserted=0, updated=0),
+            ]
+        )
+
+        workflow = Workflow(
+            entity_name="invoices",
+            root_step="invoices.list",
+            steps=(
+                EndpointStep(
+                    name="invoices.list",
+                    endpoint_path="/notas",
+                    pagination=True,
+                    incremental=IncrementalStrategy(
+                        mode="date_range",
+                        start_param="dataInicial",
+                        end_param="dataFinal",
+                    ),
+                    record_id_keys=("id", "idNota"),
+                ),
+                EndpointStep(
+                    name="invoices.detail",
+                    endpoint_path="/notas/{idNota}",
+                    source_step="invoices.list",
+                    path_params={"idNota": ("record_id", "id", "idNota")},
+                    record_id_keys=("id", "idNota"),
+                    singleton=True,
+                    only_if_changed=True,
+                ),
+                EndpointStep(
+                    name="invoices.link",
+                    endpoint_path="/notas/{idNota}/link",
+                    source_step="invoices.detail",
+                    path_params={"idNota": ("record_id", "id", "idNota")},
+                    singleton=True,
+                    only_if_changed=True,
+                ),
+                EndpointStep(
+                    name="invoices.item_detail",
+                    endpoint_path="/notas/{idNota}/itens/{idItem}",
+                    source_step="invoices.detail",
+                    path_params={
+                        "idNota": ("idNota",),
+                        "idItem": ("record_id", "id", "idItem"),
+                    },
+                    nested_collection_keys=("itens",),
+                    record_id_keys=("id", "idItem"),
+                    singleton=True,
+                    only_if_changed=True,
+                ),
+            ),
+        )
+
+        result = runner.run_workflow(
+            execution_id="exec-invoices-unchanged",
+            execution_type="incremental",
+            tenant_id="tenant-1",
+            workflow=workflow,
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["requestCount"], 2)
+        self.assertEqual(runner.client.request_json.call_count, 2)
+
+    def test_invoices_derived_steps_run_when_detail_changes(self) -> None:
+        runner = self._build_runner()
+        runner.client = Mock()
+        runner._log = Mock()
+        runner.client.request_json = Mock(
+            side_effect=[
+                (
+                    {
+                        "items": [
+                            {"idNota": 100, "dataCriacao": "2026-06-28 01:00:00"},
+                        ]
+                    },
+                    {},
+                ),
+                (
+                    {
+                        "idNota": 100,
+                        "itens": [{"idItem": 501}],
+                    },
+                    {},
+                ),
+                (
+                    {"url": "https://exemplo.local/nota/100"},
+                    {},
+                ),
+                (
+                    {"idItem": 501, "descricao": "Item alterado"},
+                    {},
+                ),
+            ]
+        )
+        runner.repository.upsert_raw_payload = Mock(
+            side_effect=[
+                UpsertResult(inserted=1, updated=0),
+                UpsertResult(inserted=1, updated=0),
+                UpsertResult(inserted=1, updated=0),
+                UpsertResult(inserted=1, updated=0),
+            ]
+        )
+
+        workflow = Workflow(
+            entity_name="invoices",
+            root_step="invoices.list",
+            steps=(
+                EndpointStep(
+                    name="invoices.list",
+                    endpoint_path="/notas",
+                    pagination=True,
+                    incremental=IncrementalStrategy(
+                        mode="date_range",
+                        start_param="dataInicial",
+                        end_param="dataFinal",
+                    ),
+                    record_id_keys=("id", "idNota"),
+                ),
+                EndpointStep(
+                    name="invoices.detail",
+                    endpoint_path="/notas/{idNota}",
+                    source_step="invoices.list",
+                    path_params={"idNota": ("record_id", "id", "idNota")},
+                    record_id_keys=("id", "idNota"),
+                    singleton=True,
+                    only_if_changed=True,
+                ),
+                EndpointStep(
+                    name="invoices.link",
+                    endpoint_path="/notas/{idNota}/link",
+                    source_step="invoices.detail",
+                    path_params={"idNota": ("record_id", "id", "idNota")},
+                    singleton=True,
+                    only_if_changed=True,
+                ),
+                EndpointStep(
+                    name="invoices.item_detail",
+                    endpoint_path="/notas/{idNota}/itens/{idItem}",
+                    source_step="invoices.detail",
+                    path_params={
+                        "idNota": ("idNota",),
+                        "idItem": ("record_id", "id", "idItem"),
+                    },
+                    nested_collection_keys=("itens",),
+                    record_id_keys=("id", "idItem"),
+                    singleton=True,
+                    only_if_changed=True,
+                ),
+            ),
+        )
+
+        result = runner.run_workflow(
+            execution_id="exec-invoices-changed",
+            execution_type="incremental",
+            tenant_id="tenant-1",
+            workflow=workflow,
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["requestCount"], 4)
+        self.assertEqual(runner.client.request_json.call_count, 4)
+
+    def test_reconciliation_runs_invoices_derived_steps_even_when_detail_is_unchanged(self) -> None:
+        runner = self._build_runner()
+        runner.client = Mock()
+        runner._log = Mock()
+        runner.client.request_json = Mock(
+            side_effect=[
+                (
+                    {
+                        "items": [
+                            {"idNota": 100, "dataCriacao": "2026-06-28 01:00:00"},
+                        ]
+                    },
+                    {},
+                ),
+                (
+                    {
+                        "idNota": 100,
+                        "itens": [{"idItem": 501}],
+                    },
+                    {},
+                ),
+                (
+                    {"url": "https://exemplo.local/nota/100"},
+                    {},
+                ),
+                (
+                    {"idItem": 501, "descricao": "Item conciliado"},
+                    {},
+                ),
+            ]
+        )
+        runner.repository.upsert_raw_payload = Mock(
+            side_effect=[
+                UpsertResult(inserted=1, updated=0),
+                UpsertResult(inserted=0, updated=0),
+                UpsertResult(inserted=1, updated=0),
+                UpsertResult(inserted=1, updated=0),
+            ]
+        )
+
+        workflow = Workflow(
+            entity_name="invoices",
+            root_step="invoices.list",
+            steps=(
+                EndpointStep(
+                    name="invoices.list",
+                    endpoint_path="/notas",
+                    pagination=True,
+                    incremental=IncrementalStrategy(
+                        mode="date_range",
+                        start_param="dataInicial",
+                        end_param="dataFinal",
+                    ),
+                    record_id_keys=("id", "idNota"),
+                ),
+                EndpointStep(
+                    name="invoices.detail",
+                    endpoint_path="/notas/{idNota}",
+                    source_step="invoices.list",
+                    path_params={"idNota": ("record_id", "id", "idNota")},
+                    record_id_keys=("id", "idNota"),
+                    singleton=True,
+                    only_if_changed=True,
+                ),
+                EndpointStep(
+                    name="invoices.link",
+                    endpoint_path="/notas/{idNota}/link",
+                    source_step="invoices.detail",
+                    path_params={"idNota": ("record_id", "id", "idNota")},
+                    singleton=True,
+                    only_if_changed=True,
+                ),
+                EndpointStep(
+                    name="invoices.item_detail",
+                    endpoint_path="/notas/{idNota}/itens/{idItem}",
+                    source_step="invoices.detail",
+                    path_params={
+                        "idNota": ("idNota",),
+                        "idItem": ("record_id", "id", "idItem"),
+                    },
+                    nested_collection_keys=("itens",),
+                    record_id_keys=("id", "idItem"),
+                    singleton=True,
+                    only_if_changed=True,
+                ),
+            ),
+        )
+
+        result = runner.run_workflow(
+            execution_id="exec-invoices-reconciliation",
+            execution_type="reconciliation",
+            tenant_id="tenant-1",
+            workflow=workflow,
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["requestCount"], 4)
+        self.assertEqual(runner.client.request_json.call_count, 4)
+        self.assertEqual(len(self.repository.reconcile_calls), 1)
+
     def test_reconciliation_marks_absent_records_as_deleted(self) -> None:
         runner = self._build_runner()
         self.repository.reconciled_deleted_total = 3
@@ -857,6 +1181,64 @@ class WorkflowRunnerTests(unittest.TestCase):
         self.assertEqual(self.repository.reconcile_calls[0]["execution_id"], "exec-7")
         self.assertIsNone(self.repository.saved_watermark)
         self.assertEqual(self.repository.finished_runs[-1]["details"]["reconciledDeletedCount"], 3)
+
+    def test_reconciliation_invalid_json_fails_entity_and_skips_delete_reconcile(self) -> None:
+        runner = self._build_runner()
+        runner.client = Mock()
+        runner.client.request_json = Mock(
+            side_effect=[
+                (
+                    {
+                        "items": [
+                            {"id": 11, "dataEmissao": "2026-06-28 01:00:00"},
+                        ]
+                    },
+                    {},
+                ),
+                OlistInvalidJsonError(
+                    endpoint_path="/contas-receber/11/recebimentos",
+                    status_code=200,
+                    response_text="",
+                    response_headers={"Content-Type": "text/plain"},
+                ),
+            ]
+        )
+
+        workflow = Workflow(
+            entity_name="accounts_receivable",
+            root_step="accounts_receivable.list",
+            steps=(
+                EndpointStep(
+                    name="accounts_receivable.list",
+                    endpoint_path="/contas-receber",
+                    pagination=True,
+                    incremental=IncrementalStrategy(
+                        mode="date_range",
+                        start_param="dataInicialEmissao",
+                        end_param="dataFinalEmissao",
+                    ),
+                    record_id_keys=("id",),
+                ),
+                EndpointStep(
+                    name="accounts_receivable.receipts",
+                    endpoint_path="/contas-receber/{idContaReceber}/recebimentos",
+                    source_step="accounts_receivable.list",
+                    path_params={"idContaReceber": ("record_id", "id", "idContaReceber")},
+                    ignore_invalid_json=True,
+                ),
+            ),
+        )
+
+        result = runner.run_workflow(
+            execution_id="exec-reconciliation-invalid-json",
+            execution_type="reconciliation",
+            tenant_id="tenant-1",
+            workflow=workflow,
+        )
+
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(len(self.repository.reconcile_calls), 0)
+        self.assertEqual(self.repository.finished_runs[-1]["details"]["reconciledDeletedCount"], 0)
 
 
 class ExtractionServiceTests(unittest.TestCase):

@@ -7,7 +7,7 @@ import threading
 import traceback
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import re
 from typing import Any, Callable
 
@@ -41,6 +41,7 @@ COMMON_UPDATED_AT_KEYS = (
 
 RETRYABLE_HTTP_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 PLAN_LIMIT_START_DATE_RE = re.compile(r"a partir de (\d{2}/\d{2}/\d{4})")
+OPEN_HISTORY_START = datetime(1900, 1, 1, tzinfo=timezone.utc)
 
 
 #region debug-point lastlog-report
@@ -434,7 +435,11 @@ class WorkflowRunner:
                             },
                         )
                         continue
-                    step_contexts = self._resolve_step_contexts(step, contexts_by_step)
+                    step_contexts = self._resolve_step_contexts(
+                        step,
+                        contexts_by_step,
+                        execution_type=execution_type,
+                    )
                     extracted_contexts = self._execute_step(
                         execution_id=execution_id,
                         sync_run_id=sync_run_id,
@@ -580,12 +585,14 @@ class WorkflowRunner:
         self,
         step: EndpointStep,
         contexts_by_step: dict[str, list[dict[str, Any]]],
+        *,
+        execution_type: str,
     ) -> list[dict[str, Any]]:
         if step.source_step is None:
             return [{"path_params": {}, "payload": None, "record_id": None}]
 
         source_contexts = contexts_by_step.get(step.source_step, [])
-        if step.only_if_changed:
+        if step.only_if_changed and execution_type != "reconciliation":
             source_contexts = [context for context in source_contexts if context.get("source_changed")]
         if not step.nested_collection_keys:
             return source_contexts
@@ -736,6 +743,7 @@ class WorkflowRunner:
                             sync_run_id=sync_run_id,
                             tenant_id=tenant_id,
                             entity_name=entity_name,
+                            execution_type=execution_type,
                             step=step,
                             endpoint_path=endpoint_path,
                             error=exc,
@@ -781,6 +789,7 @@ class WorkflowRunner:
                     sync_run_id=sync_run_id,
                     tenant_id=tenant_id,
                     entity_name=entity_name,
+                    execution_type=execution_type,
                     step=step,
                     endpoint_path=endpoint_path,
                     error=exc,
@@ -836,7 +845,7 @@ class WorkflowRunner:
 
         if execution_type == "reconciliation":
             if step.incremental.mode == "date_range":
-                start_reference = utc_now() - timedelta(days=3650)
+                start_reference = OPEN_HISTORY_START
                 start_value = format_incremental_date(start_reference)
                 end_value = format_incremental_date(utc_now())
                 if start_value:
@@ -853,7 +862,7 @@ class WorkflowRunner:
             if formatted:
                 params[step.incremental.start_param] = formatted
         elif step.incremental.mode == "date_range":
-            start_reference = watermark or (utc_now() - timedelta(days=3650))
+            start_reference = watermark or OPEN_HISTORY_START
             if watermark is not None and step.incremental.overlap_days > 0:
                 start_reference = watermark - timedelta(days=step.incremental.overlap_days)
             start_value = format_incremental_date(start_reference)
@@ -977,6 +986,7 @@ class WorkflowRunner:
         sync_run_id: str,
         tenant_id: str,
         entity_name: str,
+        execution_type: str,
         step: EndpointStep,
         endpoint_path: str,
         error: Exception,
@@ -993,6 +1003,8 @@ class WorkflowRunner:
         elif isinstance(error, OlistInvalidJsonError) and step.ignore_invalid_json:
             status_code = error.status_code
             response_preview = error.response_text[:200]
+            if execution_type == "reconciliation":
+                return False
             reason = "JSON invalido"
 
         if not reason:

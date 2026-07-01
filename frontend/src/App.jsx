@@ -1302,7 +1302,7 @@ function ExtractionPage({
                   onClick={onStartIncremental}
                   disabled={isSubmitting}
                 >
-                  Iniciar incremental
+                  Iniciar INCREMENTAL
                 </button>
                 <button
                   type="button"
@@ -1310,7 +1310,7 @@ function ExtractionPage({
                   onClick={onStartReconciliation}
                   disabled={isSubmitting}
                 >
-                  Iniciar conciliação
+                  Iniciar CONCILIAÇÃO
                 </button>
               </>
             )}

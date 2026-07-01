@@ -33,6 +33,7 @@ set "BACKEND_URL=http://%BACKEND_HOST%:%BACKEND_PORT%/api/health"
 set "FRONTEND_URL=http://%FRONTEND_HOST%:%FRONTEND_PORT%"
 
 set "START_WAIT_SECONDS=45"
+set "FRONTEND_WARMUP_SECONDS=8"
 set "STOP_WAIT_SECONDS=20"
 
 set "LOG_FILE=%APP_ROOT%\Albertina.log"
@@ -40,9 +41,12 @@ set "BACKEND_RUNTIME_LOG=%APP_ROOT%\Albertina.backend.log"
 set "BACKEND_RUNTIME_ERR_LOG=%APP_ROOT%\Albertina.backend.err.log"
 set "FRONTEND_RUNTIME_LOG=%APP_ROOT%\Albertina.frontend.log"
 set "FRONTEND_RUNTIME_ERR_LOG=%APP_ROOT%\Albertina.frontend.err.log"
+set "FRONTEND_BUILD_LOG=%APP_ROOT%\Albertina.frontend.build.log"
+set "FRONTEND_BUILD_ERR_LOG=%APP_ROOT%\Albertina.frontend.build.err.log"
 set "BACKEND_PID_FILE=%APP_ROOT%\Albertina.backend.pid"
 set "FRONTEND_PID_FILE=%APP_ROOT%\Albertina.frontend.pid"
 set "FRONTEND_BUILD_DIR=%FRONTEND_DIR%\dist"
+set "FRONTEND_VITE_CLI=%FRONTEND_DIR%\node_modules\vite\bin\vite.js"
 
 set "NSSM_BACKEND_SERVICE=AlbertinaBackend"
 set "NSSM_FRONTEND_SERVICE=AlbertinaFrontend"
@@ -91,6 +95,7 @@ if /I "%~1"=="reiniciar" goto cli_restart
 if /I "%~1"=="restart" goto cli_restart
 if /I "%~1"=="encerrar" goto cli_stop
 if /I "%~1"=="stop" goto cli_stop
+if /I "%~1"=="__start_internal" goto cli_start_internal
 if /I "%~1"=="install-deps" goto cli_install_deps
 if /I "%~1"=="install-pm2" goto cli_install_pm2
 if /I "%~1"=="remove-pm2" goto cli_remove_pm2
@@ -200,6 +205,12 @@ call :show_status || exit /b 1
 exit /b 0
 
 :cli_start
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Start-Process -WindowStyle Hidden -FilePath $env:ComSpec -ArgumentList '/c','\"\"%SCRIPT_FULL_PATH%\" __start_internal\"' | Out-Null" || exit /b 1
+echo Inicializacao disparada em segundo plano. Use "%SCRIPT_FULL_PATH%" status para acompanhar.
+exit /b 0
+
+:cli_start_internal
 call :start_application || exit /b 1
 exit /b 0
 
@@ -289,11 +300,7 @@ call :log "Inicio solicitado."
 call :ensure_prerequisites || exit /b 1
 call :stop_application_silent || exit /b 1
 call :start_backend || exit /b 1
-call :start_frontend || (
-  call :log "Falha ao iniciar frontend; encerrando backend para evitar estado parcial."
-  call :stop_component "Backend" "%BACKEND_PID_FILE%" "%BACKEND_PORT%" "backend" >nul 2>&1
-  exit /b 1
-)
+call :start_frontend || exit /b 1
 echo.
 call :show_status || exit /b 1
 exit /b 0
@@ -325,26 +332,29 @@ echo.
 echo Iniciando backend...
 call :log "Iniciando backend."
 
-set "BACKEND_START_PID="
 set "BACKEND_PID="
-
+if exist "%BACKEND_PID_FILE%.tmp" del /f /q "%BACKEND_PID_FILE%.tmp" >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$p = Start-Process -WindowStyle Hidden -FilePath '%PYTHON_EXE%' -WorkingDirectory '%BACKEND_DIR%' -ArgumentList '-m','uvicorn','app:app','--host','%BACKEND_HOST%','--port','%BACKEND_PORT%' -RedirectStandardOutput '%BACKEND_RUNTIME_LOG%' -RedirectStandardError '%BACKEND_RUNTIME_ERR_LOG%' -PassThru; $p.Id" > "%BACKEND_PID_FILE%.tmp" 2>nul || exit /b 1
-
-set /p BACKEND_START_PID=<"%BACKEND_PID_FILE%.tmp"
+  "$p = Start-Process -WindowStyle Hidden -FilePath '%PYTHON_EXE%' -WorkingDirectory '%BACKEND_DIR%' -ArgumentList '-m','uvicorn','app:app','--host','%BACKEND_HOST%','--port','%BACKEND_PORT%' -RedirectStandardOutput '%BACKEND_RUNTIME_LOG%' -RedirectStandardError '%BACKEND_RUNTIME_ERR_LOG%' -PassThru; $p.Id" > "%BACKEND_PID_FILE%.tmp" 2>nul
+if not "%ERRORLEVEL%"=="0" (
+  echo Falha ao disparar o processo do backend.
+  call :log "Falha ao disparar processo do backend."
+  exit /b 1
+)
+set /p BACKEND_PID=<"%BACKEND_PID_FILE%.tmp"
 del /f /q "%BACKEND_PID_FILE%.tmp" >nul 2>&1
 
 call :wait_for_http "%BACKEND_URL%" "%START_WAIT_SECONDS%"
 if not "%ERRORLEVEL%"=="0" (
-  if not "%BACKEND_START_PID%"=="" call :terminate_pid_tree "%BACKEND_START_PID%" "Backend"
+  call :stop_component "Backend" "%BACKEND_PID_FILE%" "%BACKEND_PORT%" "backend" >nul 2>&1
   echo Falha ao iniciar o backend em %BACKEND_URL%.
   echo Verifique: "%BACKEND_RUNTIME_ERR_LOG%"
   call :log "Falha ao iniciar backend."
   exit /b 1
 )
 
-call :get_pid_from_port "%BACKEND_PORT%" BACKEND_PID || exit /b 1
-if "%BACKEND_PID%"=="" set "BACKEND_PID=%BACKEND_START_PID%"
+call :get_pid_from_port "%BACKEND_PORT%" PORT_BACKEND_PID || exit /b 1
+if not "%PORT_BACKEND_PID%"=="" set "BACKEND_PID=%PORT_BACKEND_PID%"
 if "%BACKEND_PID%"=="" (
   echo Backend subiu, mas nao foi possivel identificar o PID.
   call :log "Backend sem PID identificado."
@@ -361,30 +371,31 @@ echo Iniciando frontend...
 call :log "Iniciando frontend."
 call :prepare_frontend_runtime || exit /b 1
 
-set "FRONTEND_START_PID="
 set "FRONTEND_PID="
-
+if exist "%FRONTEND_PID_FILE%.tmp" del /f /q "%FRONTEND_PID_FILE%.tmp" >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$p = Start-Process -WindowStyle Hidden -FilePath '%NPM_CMD%' -WorkingDirectory '%FRONTEND_DIR%' -ArgumentList 'run','preview','--','--host','%FRONTEND_HOST%','--port','%FRONTEND_PORT%','--strictPort' -RedirectStandardOutput '%FRONTEND_RUNTIME_LOG%' -RedirectStandardError '%FRONTEND_RUNTIME_ERR_LOG%' -PassThru; $p.Id" > "%FRONTEND_PID_FILE%.tmp" 2>nul || exit /b 1
-
-set /p FRONTEND_START_PID=<"%FRONTEND_PID_FILE%.tmp"
-del /f /q "%FRONTEND_PID_FILE%.tmp" >nul 2>&1
-
-call :wait_for_http "%FRONTEND_URL%" "%START_WAIT_SECONDS%"
+  "$p = Start-Process -WindowStyle Hidden -FilePath '%NODE_EXE%' -WorkingDirectory '%FRONTEND_DIR%' -ArgumentList '%FRONTEND_VITE_CLI%','preview','--host','%FRONTEND_HOST%','--port','%FRONTEND_PORT%','--strictPort' -RedirectStandardOutput '%FRONTEND_RUNTIME_LOG%' -RedirectStandardError '%FRONTEND_RUNTIME_ERR_LOG%' -PassThru; $p.Id" > "%FRONTEND_PID_FILE%.tmp" 2>nul
 if not "%ERRORLEVEL%"=="0" (
-  if not "%FRONTEND_START_PID%"=="" call :terminate_pid_tree "%FRONTEND_START_PID%" "Frontend"
-  echo Falha ao iniciar o frontend em %FRONTEND_URL%.
-  echo Verifique: "%FRONTEND_RUNTIME_ERR_LOG%"
-  call :log "Falha ao iniciar frontend."
+  echo Falha ao disparar o processo do frontend.
+  call :log "Falha ao disparar processo do frontend."
   exit /b 1
 )
+set /p FRONTEND_PID=<"%FRONTEND_PID_FILE%.tmp"
+del /f /q "%FRONTEND_PID_FILE%.tmp" >nul 2>&1
 
-call :get_pid_from_port "%FRONTEND_PORT%" FRONTEND_PID || exit /b 1
-if "%FRONTEND_PID%"=="" set "FRONTEND_PID=%FRONTEND_START_PID%"
+call :wait_for_http "%FRONTEND_URL%" "%FRONTEND_WARMUP_SECONDS%"
+if not "%ERRORLEVEL%"=="0" (
+  echo Frontend em aquecimento assincrono. Verifique novamente com: "%SCRIPT_FULL_PATH%" status
+  call :log "Frontend em aquecimento assincrono apos o disparo inicial."
+  exit /b 0
+)
+
+call :get_pid_from_port "%FRONTEND_PORT%" PORT_FRONTEND_PID || exit /b 1
+if not "%PORT_FRONTEND_PID%"=="" set "FRONTEND_PID=%PORT_FRONTEND_PID%"
 if "%FRONTEND_PID%"=="" (
-  echo Frontend subiu, mas nao foi possivel identificar o PID.
-  call :log "Frontend sem PID identificado."
-  exit /b 1
+  echo Frontend subiu, mas o PID ainda nao foi identificado.
+  call :log "Frontend ativo sem PID identificado no primeiro ciclo."
+  exit /b 0
 )
 
 >"%FRONTEND_PID_FILE%" echo %FRONTEND_PID% || exit /b 1
@@ -508,13 +519,21 @@ call "%NPM_CMD%" --prefix "%FRONTEND_DIR%" exec vite -- --version >nul 2>&1 || (
   call :log "Dependencias do frontend continuam indisponiveis."
   exit /b 1
 )
+if not exist "%FRONTEND_VITE_CLI%" (
+  echo CLI do Vite nao encontrada em "%FRONTEND_VITE_CLI%".
+  call :log "CLI do Vite nao encontrada."
+  exit /b 1
+)
 exit /b 0
 
 :prepare_frontend_runtime
 echo Compilando frontend para runtime estavel...
 call :log "Gerando build do frontend para runtime estavel."
-call "%NPM_CMD%" --prefix "%FRONTEND_DIR%" run build || (
+if exist "%FRONTEND_BUILD_LOG%" del /f /q "%FRONTEND_BUILD_LOG%" >nul 2>&1
+if exist "%FRONTEND_BUILD_ERR_LOG%" del /f /q "%FRONTEND_BUILD_ERR_LOG%" >nul 2>&1
+call "%NPM_CMD%" --prefix "%FRONTEND_DIR%" run build 1>>"%FRONTEND_BUILD_LOG%" 2>>"%FRONTEND_BUILD_ERR_LOG%" || (
   echo Falha ao gerar o build do frontend.
+  echo Verifique: "%FRONTEND_BUILD_ERR_LOG%"
   call :log "Falha ao gerar build do frontend."
   exit /b 1
 )
