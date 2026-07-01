@@ -191,3 +191,10 @@ INFO:     127.0.0.1:61729 - "GET /api/extraction/overview HTTP/1.1" 200 OK
 INFO:     127.0.0.1:53195 - "GET /api/extraction/overview HTTP/1.1" 200 OK
 INFO:     127.0.0.1:59497 - "GET /api/extraction/overview HTTP/1.1" 200 OK
 INFO:     127.0.0.1:59497 - "GET /api/extraction/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65277 - "GET /api/extraction/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59513 - "GET /api/extraction/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56842 - "GET /api/extraction/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56842 - "GET /api/extraction/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56842 - "GET /api/extraction/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62074 - "GET /api/extraction/overview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52979 - "GET /api/extraction/overview HTTP/1.1" 200 OK

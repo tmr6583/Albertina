@@ -6342,3 +6342,53 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 30/06/2026 19:22:24 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/920461865/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
 30/06/2026 19:22:27 | INFO | Etapa opcional products.kit ignorada em /produtos/921762834/kit por status HTTP 400. A entidade seguira em frente.
 30/06/2026 19:22:27 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/921762834/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:29 | INFO | Etapa opcional products.kit ignorada em /produtos/921913909/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:29 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/921913909/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:31 | INFO | Etapa opcional products.kit ignorada em /produtos/923576464/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:31 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/923576464/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:34 | INFO | Etapa opcional products.kit ignorada em /produtos/924154943/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:34 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/924154943/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:36 | INFO | Etapa opcional products.kit ignorada em /produtos/924214326/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:36 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/924214326/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:39 | INFO | Etapa opcional products.kit ignorada em /produtos/924237998/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:39 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/924237998/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:41 | INFO | Etapa opcional products.kit ignorada em /produtos/924247096/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:41 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/924247096/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:43 | INFO | Etapa opcional products.kit ignorada em /produtos/925001833/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:43 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/925001833/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:45 | INFO | Heartbeat da entidade products: etapa=products.kit, processados=992/1010, requests=2031, extraidos=3030, inseridos=0, atualizados=127, erros=0.
+30/06/2026 19:22:46 | INFO | Etapa opcional products.kit ignorada em /produtos/925743785/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:46 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/925743785/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:48 | INFO | Etapa opcional products.kit ignorada em /produtos/925743862/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:48 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/925743862/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:50 | INFO | Etapa opcional products.kit ignorada em /produtos/925744101/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:50 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/925744101/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:53 | INFO | Etapa opcional products.kit ignorada em /produtos/925867067/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:53 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/925867067/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:55 | INFO | Etapa opcional products.kit ignorada em /produtos/926477185/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:55 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/926477185/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:22:57 | INFO | Etapa opcional products.kit ignorada em /produtos/926602546/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:22:57 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/926602546/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:00 | INFO | Etapa opcional products.kit ignorada em /produtos/926870118/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:00 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/926870118/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:02 | INFO | Etapa opcional products.kit ignorada em /produtos/927241834/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:02 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/927241834/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:05 | INFO | Etapa opcional products.kit ignorada em /produtos/927241836/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:05 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/927241836/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:08 | INFO | Etapa opcional products.kit ignorada em /produtos/927471269/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:08 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/927471269/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:10 | INFO | Etapa opcional products.kit ignorada em /produtos/927838317/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:10 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/927838317/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:13 | INFO | Etapa opcional products.kit ignorada em /produtos/930972197/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:13 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/930972197/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:15 | INFO | Heartbeat da entidade products: etapa=products.kit, processados=1004/1010, requests=2031, extraidos=3030, inseridos=0, atualizados=127, erros=0.
+30/06/2026 19:23:15 | INFO | Etapa opcional products.kit ignorada em /produtos/930972344/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:15 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/930972344/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:17 | INFO | Etapa opcional products.kit ignorada em /produtos/931436710/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:17 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/931436710/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:20 | INFO | Etapa opcional products.kit ignorada em /produtos/933537098/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:20 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/933537098/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:22 | INFO | Etapa opcional products.kit ignorada em /produtos/933894699/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:22 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/933894699/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
+30/06/2026 19:23:24 | INFO | Etapa opcional products.kit ignorada em /produtos/937223343/kit por status HTTP 400. A entidade seguira em frente.
+30/06/2026 19:23:24 | WARNING | Etapa opcional ignorada: entity=products step=products.kit endpoint=/produtos/937223343/kit reason=status HTTP 400 status=400 preview={"mensagem":"Produto não é do tipo 'Kit'"}
