@@ -357,6 +357,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 source_step="products.list",
                 path_params={"idProduto": ("record_id", "id", "idProduto")},
                 singleton=True,
+                incremental=COOLDOWN_24H,
             ),
             EndpointStep(
                 name="products.fabricated",
@@ -364,6 +365,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 source_step="products.list",
                 path_params={"idProduto": ("record_id", "id", "idProduto")},
                 singleton=True,
+                incremental=COOLDOWN_24H,
                 ignore_http_statuses=(404,),
             ),
             EndpointStep(
@@ -372,6 +374,7 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 source_step="products.list",
                 path_params={"idProduto": ("record_id", "id", "idProduto")},
                 singleton=True,
+                incremental=COOLDOWN_24H,
                 ignore_http_statuses=(400,),
             ),
             EndpointStep(
@@ -379,11 +382,26 @@ WORKFLOWS: tuple[Workflow, ...] = (
                 endpoint_path="/produtos/{idProduto}/tags",
                 source_step="products.list",
                 path_params={"idProduto": ("record_id", "id", "idProduto")},
+                incremental=COOLDOWN_24H,
+            ),
+        ),
+    ),
+    Workflow(
+        entity_name="products_stock",
+        root_step="products_stock.list",
+        steps=(
+            EndpointStep(
+                name="products_stock.list",
+                endpoint_path="/produtos",
+                pagination=True,
+                incremental=WATERMARK_CHANGED,
+                record_id_keys=("id", "idProduto"),
+                updated_at_keys=("dataAlteracao",),
             ),
             EndpointStep(
-                name="products.stock",
+                name="products_stock.stock",
                 endpoint_path="/estoque/{idProduto}",
-                source_step="products.list",
+                source_step="products_stock.list",
                 path_params={"idProduto": ("record_id", "id", "idProduto")},
                 singleton=True,
             ),

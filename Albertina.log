@@ -263,3 +263,127 @@
 [30/06/2026 17:25:30] Script iniciado. Acao=
 [30/06/2026 17:25:35] Opcao invalida: 
 [30/06/2026 17:25:38] Menu fechado pelo usuario.
+[01/07/2026 08:44:00] Script iniciado. Acao=
+[01/07/2026 08:44:09] Encerramento solicitado.
+[01/07/2026 08:44:12] Frontend: PID 26972  encerrado.
+[01/07/2026 08:44:14] Frontend porta 3500: PID 26972 encerrado.
+[01/07/2026 08:44:15] Frontend encerrado.
+[01/07/2026 08:44:18] Backend: PID 22788  encerrado.
+[01/07/2026 08:44:20] Backend porta 8000: PID 22788 encerrado.
+[01/07/2026 08:44:21] Backend encerrado.
+[01/07/2026 08:44:23] Script iniciado. Acao=
+[01/07/2026 08:44:32] Inicio solicitado.
+[01/07/2026 08:44:40] Frontend ja estava parado.
+[01/07/2026 08:44:41] Backend ja estava parado.
+[01/07/2026 08:44:41] Iniciando backend.
+[01/07/2026 08:44:45] Backend iniciado com PID 14392.
+[01/07/2026 08:44:46] Iniciando frontend.
+[01/07/2026 08:44:46] Gerando build do frontend para runtime estavel.
+[01/07/2026 08:44:48] Build do frontend concluido.
+[01/07/2026 08:44:50] Frontend iniciado com PID 21420.
+[01/07/2026 10:03:49] Script iniciado. Acao=
+[01/07/2026 10:03:52] Encerramento solicitado.
+[01/07/2026 10:03:56] Frontend: PID 21420  encerrado.
+[01/07/2026 10:03:58] Frontend porta 3500: PID 21420 encerrado.
+[01/07/2026 10:03:59] Frontend encerrado.
+[01/07/2026 10:04:02] Backend: PID 14392  encerrado.
+[01/07/2026 10:04:04] Backend porta 8000: PID 14392 encerrado.
+[01/07/2026 10:04:05] Backend encerrado.
+[01/07/2026 10:04:11] Script iniciado. Acao=
+[01/07/2026 10:04:16] Inicio solicitado.
+[01/07/2026 10:04:21] Frontend ja estava parado.
+[01/07/2026 10:04:21] Backend ja estava parado.
+[01/07/2026 10:04:22] Iniciando backend.
+[01/07/2026 10:04:25] Backend iniciado com PID 18352.
+[01/07/2026 10:04:25] Iniciando frontend.
+[01/07/2026 10:04:25] Gerando build do frontend para runtime estavel.
+[01/07/2026 10:04:27] Build do frontend concluido.
+[01/07/2026 10:04:29] Frontend iniciado com PID 2468.
+[01/07/2026 10:08:09] Script iniciado. Acao=
+[01/07/2026 10:08:12] Reinicio solicitado.
+[01/07/2026 10:08:12] Inicio solicitado.
+[01/07/2026 10:08:19] Frontend: PID 2468  encerrado.
+[01/07/2026 10:08:21] Frontend porta 3500: PID 2468 encerrado.
+[01/07/2026 10:08:22] Frontend encerrado.
+[01/07/2026 10:08:25] Backend: PID 18352  encerrado.
+[01/07/2026 10:08:28] Backend porta 8000: PID 18352 encerrado.
+[01/07/2026 10:08:29] Backend encerrado.
+[01/07/2026 10:08:29] Iniciando backend.
+[01/07/2026 10:08:32] Backend iniciado com PID 3380.
+[01/07/2026 10:08:32] Iniciando frontend.
+[01/07/2026 10:08:33] Gerando build do frontend para runtime estavel.
+[01/07/2026 10:08:34] Build do frontend concluido.
+[01/07/2026 10:08:36] Frontend iniciado com PID 4312.
+[01/07/2026 10:30:47] Script iniciado. Acao=
+[01/07/2026 10:30:50] Encerramento solicitado.
+[01/07/2026 10:30:53] Frontend: PID 4312  encerrado.
+[01/07/2026 10:30:55] Frontend porta 3500: PID 4312 encerrado.
+[01/07/2026 10:30:56] Frontend encerrado.
+[01/07/2026 10:30:59] Backend: PID 3380  encerrado.
+[01/07/2026 10:31:02] Backend porta 8000: PID 3380 encerrado.
+[01/07/2026 10:31:03] Backend encerrado.
+[01/07/2026 10:31:05] Script iniciado. Acao=
+[01/07/2026 10:31:09] Opcao invalida: 
+[01/07/2026 10:31:12] Inicio solicitado.
+[01/07/2026 10:31:17] Frontend ja estava parado.
+[01/07/2026 10:31:17] Backend ja estava parado.
+[01/07/2026 10:31:18] Iniciando backend.
+[01/07/2026 10:31:21] Backend iniciado com PID 25064.
+[01/07/2026 10:31:22] Iniciando frontend.
+[01/07/2026 10:31:22] Gerando build do frontend para runtime estavel.
+[01/07/2026 10:31:24] Build do frontend concluido.
+[01/07/2026 10:31:27] Frontend iniciado com PID 43016.
+[01/07/2026 10:35:58] Script iniciado. Acao=
+[01/07/2026 10:36:01] Encerramento solicitado.
+[01/07/2026 10:36:04] Frontend: PID 43016  encerrado.
+[01/07/2026 10:36:06] Frontend porta 3500: PID 43016 encerrado.
+[01/07/2026 10:36:07] Frontend encerrado.
+[01/07/2026 10:36:10] Backend: PID 25064  encerrado.
+[01/07/2026 10:36:12] Backend porta 8000: PID 25064 encerrado.
+[01/07/2026 10:36:13] Backend encerrado.
+[01/07/2026 10:36:15] Script iniciado. Acao=
+[01/07/2026 10:36:17] Inicio solicitado.
+[01/07/2026 10:36:21] Frontend ja estava parado.
+[01/07/2026 10:36:21] Backend ja estava parado.
+[01/07/2026 10:36:21] Iniciando backend.
+[01/07/2026 10:36:25] Backend iniciado com PID 52720.
+[01/07/2026 10:36:25] Iniciando frontend.
+[01/07/2026 10:36:26] Gerando build do frontend para runtime estavel.
+[01/07/2026 10:36:27] Build do frontend concluido.
+[01/07/2026 10:36:29] Frontend iniciado com PID 30880.
+[01/07/2026 10:40:28] Script iniciado. Acao=
+[01/07/2026 10:40:30] Encerramento solicitado.
+[01/07/2026 10:40:34] Frontend: PID 30880  encerrado.
+[01/07/2026 10:40:37] Frontend porta 3500: PID 30880 encerrado.
+[01/07/2026 10:40:38] Frontend encerrado.
+[01/07/2026 10:40:41] Backend: PID 52720  encerrado.
+[01/07/2026 10:40:43] Backend porta 8000: PID 52720 encerrado.
+[01/07/2026 10:40:44] Backend encerrado.
+[01/07/2026 10:41:01] Script iniciado. Acao=
+[01/07/2026 10:41:09] Inicio solicitado.
+[01/07/2026 10:41:13] Frontend ja estava parado.
+[01/07/2026 10:41:14] Backend ja estava parado.
+[01/07/2026 10:41:14] Iniciando backend.
+[01/07/2026 10:41:17] Backend iniciado com PID 51624.
+[01/07/2026 10:41:17] Iniciando frontend.
+[01/07/2026 10:41:17] Gerando build do frontend para runtime estavel.
+[01/07/2026 10:41:19] Build do frontend concluido.
+[01/07/2026 10:41:21] Frontend iniciado com PID 52908.
+[01/07/2026 16:18:09] Script iniciado. Acao=
+[01/07/2026 16:18:12] Encerramento solicitado.
+[01/07/2026 16:18:16] Frontend: PID 52908  encerrado.
+[01/07/2026 16:18:18] Frontend porta 3500: PID 52908 encerrado.
+[01/07/2026 16:18:19] Frontend encerrado.
+[01/07/2026 16:18:22] Backend: PID 51624  encerrado.
+[01/07/2026 16:18:24] Backend porta 8000: PID 51624 encerrado.
+[01/07/2026 16:18:25] Backend encerrado.
+[01/07/2026 16:19:05] Script iniciado. Acao=
+[01/07/2026 16:19:07] Inicio solicitado.
+[01/07/2026 16:19:14] Frontend ja estava parado.
+[01/07/2026 16:19:14] Backend ja estava parado.
+[01/07/2026 16:19:14] Iniciando backend.
+[01/07/2026 16:19:18] Backend iniciado com PID 25548.
+[01/07/2026 16:19:18] Iniciando frontend.
+[01/07/2026 16:19:19] Gerando build do frontend para runtime estavel.
+[01/07/2026 16:19:20] Build do frontend concluido.
+[01/07/2026 16:19:22] Frontend iniciado com PID 29072.

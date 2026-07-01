@@ -4,11 +4,11 @@ import json
 import os
 import threading
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-from .catalog import WORKFLOWS, list_non_incremental_workflows
+from .catalog import WORKFLOWS, WORKFLOW_BY_ENTITY, Workflow, list_non_incremental_workflows
 from .config import build_settings
 from .extract import WorkflowRunner
 from .load import ExtractionRepository, utc_now
@@ -141,17 +141,20 @@ class ExtractionService:
             "recentExecutions": recent_executions,
         }
 
-    def start_execution(self, *, user_id: str, actor_email: str, execution_type: str) -> dict[str, Any]:
+    def start_execution(
+        self,
+        *,
+        user_id: str,
+        actor_email: str,
+        execution_type: str,
+    ) -> dict[str, Any]:
         repository = self._get_repository()
         tenant_id = self.ensure_ready(user_id)
-        if execution_type == "incremental":
-            non_incremental_entities = [workflow.entity_name for workflow in list_non_incremental_workflows()]
-            if non_incremental_entities:
-                raise RuntimeError(
-                    "A execução incremental não pode iniciar enquanto existirem entidades sem estratégia incremental configurada: "
-                    + ", ".join(non_incremental_entities)
-                    + "."
-                )
+        requested_workflows = self._resolve_requested_workflows(
+            repository=repository,
+            tenant_id=tenant_id,
+            execution_type=execution_type,
+        )
         settings = repository.fetch_olist_settings() or {}
         access_token = str(settings.get("access_token") or "").strip()
         refresh_token = str(settings.get("refresh_token") or "").strip()
@@ -224,15 +227,17 @@ class ExtractionService:
                     "executionType": execution_type,
                     "executionId": execution_id,
                     "tenantId": tenant_id,
+                        "selectedEntities": [workflow.entity_name for workflow in requested_workflows],
                 },
             )
             # #endregion
 
+        selected_entities_detail = ", ".join(workflow.entity_name for workflow in requested_workflows)
         repository.append_audit(
             "Extração iniciada",
             (
                 f"O usuário {actor_email} iniciou a execução {execution_type} da sincronização "
-                "da API Olist para o Supabase."
+                f"da API Olist para o Supabase. Entidades: {selected_entities_detail}."
             ),
             "accent",
         )
@@ -254,6 +259,7 @@ class ExtractionService:
                 "access_token": access_token,
                 "actor_email": actor_email,
                 "execution_type": execution_type,
+                "workflow_names": [workflow.entity_name for workflow in requested_workflows],
             },
             daemon=True,
         )
@@ -262,6 +268,7 @@ class ExtractionService:
             "status": "started",
             "executionId": execution_id,
             "detail": f"A execução {execution_type} foi iniciada.",
+            "selectedEntities": [workflow.entity_name for workflow in requested_workflows],
         }
 
     def start_full_sync(self, *, user_id: str, actor_email: str) -> dict[str, Any]:
@@ -314,6 +321,7 @@ class ExtractionService:
         access_token: str,
         actor_email: str,
         execution_type: str,
+        workflow_names: list[str] | None = None,
     ) -> None:
         repository = self._get_repository()
         runner = WorkflowRunner(
@@ -326,6 +334,9 @@ class ExtractionService:
         error_total = 0
         stopped = False
         started_at = datetime.now()
+        selected_workflows = [
+            WORKFLOW_BY_ENTITY[workflow_name] for workflow_name in workflow_names
+        ] if workflow_names else list(WORKFLOWS)
         try:
             # #region debug-point C:background-entry
             _debug_report(
@@ -336,10 +347,11 @@ class ExtractionService:
                     "executionId": execution_id,
                     "executionType": execution_type,
                     "tenantId": tenant_id,
+                    "workflowNames": workflow_names or [],
                 },
             )
             # #endregion
-            for workflow in WORKFLOWS:
+            for workflow in selected_workflows:
                 if self._stop_event.is_set():
                     stopped = True
                     break
@@ -387,6 +399,7 @@ class ExtractionService:
                     "successTotal": success_total,
                     "errorTotal": error_total,
                     "stopped": stopped,
+                    "workflowNames": workflow_names or [],
                 },
             )
             # #endregion
@@ -395,6 +408,54 @@ class ExtractionService:
                 self._stop_event.clear()
                 repository.release_execution_lock(self._execution_lock_connection)
                 self._execution_lock_connection = None
+
+    def _resolve_requested_workflows(
+        self,
+        *,
+        repository: ExtractionRepository,
+        tenant_id: str,
+        execution_type: str,
+    ) -> list[Workflow]:
+        if execution_type == "incremental":
+            non_incremental_entities = [workflow.entity_name for workflow in list_non_incremental_workflows()]
+            if non_incremental_entities:
+                raise RuntimeError(
+                    "A execução incremental não pode iniciar enquanto existirem entidades sem estratégia incremental configurada: "
+                    + ", ".join(non_incremental_entities)
+                    + "."
+                )
+
+        requested = list(WORKFLOWS)
+        if execution_type == "incremental":
+            requested = [
+                workflow
+                for workflow in requested
+                if not self._should_skip_products_stock_by_policy(
+                    repository=repository,
+                    tenant_id=tenant_id,
+                    workflow=workflow,
+                )
+            ]
+        if not requested:
+            raise RuntimeError("Nenhuma entidade elegível foi selecionada para esta execução.")
+        return requested
+
+    def _should_skip_products_stock_by_policy(
+        self,
+        *,
+        repository: ExtractionRepository,
+        tenant_id: str,
+        workflow: Workflow,
+    ) -> bool:
+        if workflow.entity_name != "products_stock":
+            return False
+        cooldown_hours = self.settings.products_stock_cooldown_hours
+        if cooldown_hours <= 0:
+            return False
+        watermark = repository.get_watermark(tenant_id, workflow.entity_name, "/produtos")
+        if watermark is None:
+            return False
+        return utc_now() < watermark + timedelta(hours=cooldown_hours)
 
 
 extraction_service = ExtractionService()

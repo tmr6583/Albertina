@@ -12,6 +12,7 @@ import re
 from typing import Any, Callable
 
 import requests
+from sqlalchemy.exc import OperationalError
 
 from .catalog import EndpointStep, Workflow
 from .config import ExtractionSettings
@@ -353,6 +354,8 @@ class WorkflowRunner:
         next_watermark = started_at if root_step.incremental else None
         reconciled_deleted_count = 0
         skipped_due_to_cooldown = False
+        skipped_steps_due_to_cooldown: list[str] = []
+        step_watermarks_to_save: dict[str, datetime] = {}
         heartbeat_stop = threading.Event()
         self._debug_state = {"entity": workflow.entity_name, "step": "workflow.start", "sourceIndex": 0, "sourceTotal": 0}
         heartbeat_thread = threading.Thread(
@@ -397,6 +400,40 @@ class WorkflowRunner:
             else:
                 for step in workflow.steps:
                     self._ensure_not_stopped(workflow.entity_name)
+                    step_watermark_from = (
+                        self.repository.get_watermark(tenant_id, workflow.entity_name, step.endpoint_path)
+                        if step.incremental
+                        else None
+                    )
+                    if (
+                        execution_type == "incremental"
+                        and step.name != root_step.name
+                        and self._should_skip_step_due_to_cooldown(step, step_watermark_from)
+                    ):
+                        skipped_steps_due_to_cooldown.append(step.name)
+                        contexts_by_step[step.name] = []
+                        self._log(
+                            execution_id=execution_id,
+                            sync_run_id=sync_run_id,
+                            tenant_id=tenant_id,
+                            entity_name=workflow.entity_name,
+                            level="INFO",
+                            stage="cooldown",
+                            message=(
+                                f"Etapa {step.name} ignorada nesta execução incremental "
+                                "por estar dentro da janela de cooldown."
+                            ),
+                        )
+                        self._update_run_progress(
+                            sync_run_id=sync_run_id,
+                            counters=counters,
+                            details={
+                                "currentStep": step.name,
+                                "currentEndpointPath": step.endpoint_path,
+                                "skippedStepDueToCooldown": step.name,
+                            },
+                        )
+                        continue
                     step_contexts = self._resolve_step_contexts(step, contexts_by_step)
                     extracted_contexts = self._execute_step(
                         execution_id=execution_id,
@@ -411,6 +448,12 @@ class WorkflowRunner:
                     contexts_by_step[step.name] = extracted_contexts
                     if execution_type != "reconciliation" and root_step.incremental and step.name == root_step.name:
                         next_watermark = self._resolve_next_watermark(extracted_contexts, started_at)
+                    elif (
+                        execution_type != "reconciliation"
+                        and step.incremental is not None
+                        and step.incremental.mode == "cooldown"
+                    ):
+                        step_watermarks_to_save[step.endpoint_path] = utc_now()
 
                 if execution_type == "reconciliation":
                     reconciled_deleted_count = self.repository.reconcile_entity_deletions(
@@ -436,6 +479,13 @@ class WorkflowRunner:
                         workflow.entity_name,
                         root_step.endpoint_path,
                         next_watermark or started_at,
+                    )
+                for endpoint_path, step_watermark in step_watermarks_to_save.items():
+                    self.repository.save_watermark(
+                        tenant_id,
+                        workflow.entity_name,
+                        endpoint_path,
+                        step_watermark,
                     )
         except ExtractionStopped:
             status = "cancelled"
@@ -476,6 +526,7 @@ class WorkflowRunner:
                 "updatedCount": counters.updated,
                 "reconciledDeletedCount": reconciled_deleted_count if status == "success" else 0,
                 "skippedDueToCooldown": skipped_due_to_cooldown,
+                "skippedStepsDueToCooldown": skipped_steps_due_to_cooldown,
             }
             self.repository.finish_sync_run(
                 sync_run_id=sync_run_id,
@@ -624,6 +675,62 @@ class WorkflowRunner:
                     try:
                         payload, _ = self.client.request_json(endpoint_path, paged_params)
                     except Exception as exc:
+                        recovered_from_orders_400 = False
+                        if (
+                            entity_name == "orders"
+                            and step.name == "orders.list"
+                            and isinstance(exc, requests.HTTPError)
+                            and exc.response is not None
+                            and exc.response.status_code == 400
+                            and isinstance(paged_params.get("dataAtualizacao"), str)
+                        ):
+                            watermark = self.repository.get_watermark(tenant_id, entity_name, step.endpoint_path)
+                            start_reference = watermark - timedelta(days=3) if watermark is not None else (utc_now() - timedelta(days=30))
+                            fallback_params = dict(paged_params)
+                            fallback_params.pop("dataAtualizacao", None)
+                            try:
+                                start_value = format_incremental_date(start_reference)
+                                end_value = format_incremental_date(utc_now())
+                                if start_value:
+                                    fallback_params["dataInicial"] = start_value
+                                if end_value:
+                                    fallback_params["dataFinal"] = end_value
+                                payload, _ = self.client.request_json(endpoint_path, fallback_params)
+                                paged_params = fallback_params
+                                recovered_from_orders_400 = True
+                            except Exception:
+                                pass
+                        if recovered_from_orders_400:
+                            counters.requests += 1
+                            page_contexts = self._persist_payloads(
+                                execution_id=execution_id,
+                                sync_run_id=sync_run_id,
+                                tenant_id=tenant_id,
+                                entity_name=entity_name,
+                                endpoint_path=endpoint_path,
+                                resolved_path_params=path_params,
+                                source_context=source_context,
+                                payload=payload,
+                                step=step,
+                                counters=counters,
+                            )
+                            self._update_run_progress(
+                                sync_run_id=sync_run_id,
+                                counters=counters,
+                                details={
+                                    "currentStep": step.name,
+                                    "currentEndpointPath": endpoint_path,
+                                    "sourceContextsTotal": total_source_contexts,
+                                    "sourceContextsProcessed": source_index + 1,
+                                    "lastPageOffset": page_offset,
+                                    "lastPageExtracted": len(page_contexts),
+                                },
+                            )
+                            discovered_contexts.extend(page_contexts)
+                            if not page_contexts or len(page_contexts) < page_limit:
+                                break
+                            page_offset += page_limit
+                            continue
                         if self._handle_ignorable_step_error(
                             execution_id=execution_id,
                             sync_run_id=sync_run_id,
@@ -786,54 +893,65 @@ class WorkflowRunner:
         parent_object_id = source_context.get("record_id")
         page_inserted = 0
         page_updated = 0
-        with self.repository.begin() as connection:
-            for index, record in enumerate(records):
-                self._ensure_not_stopped(entity_name)
-                record_context = {
-                    "path_params": dict(resolved_path_params or source_context.get("path_params") or {}),
-                    "payload": record,
-                    "record_id": extract_first_value(
-                        {"payload": record, "path_params": resolved_path_params or source_context.get("path_params") or {}},
-                        step.record_id_keys,
-                    ),
-                    "source_updated_at": None,
-                    "source_changed": False,
-                }
-                object_id = record_context["record_id"]
-                updated_at = extract_first_value(record_context, step.updated_at_keys or COMMON_UPDATED_AT_KEYS)
-                source_updated_at = parse_olist_datetime(updated_at)
-                record_context["source_updated_at"] = source_updated_at
-                external_key = build_external_key(
-                    endpoint_path=endpoint_path,
-                    path_params=record_context["path_params"],
-                    payload=record,
-                    object_id=object_id,
-                    fallback_index=index,
-                )
-                upsert_result = self.repository.upsert_raw_payload(
-                    execution_id=execution_id,
-                    tenant_id=tenant_id,
-                    entity_name=entity_name,
-                    endpoint_path=endpoint_path,
-                    external_key=external_key,
-                    olist_object_id=int(object_id) if isinstance(object_id, int) or str(object_id).isdigit() else None,
-                    parent_olist_object_id=int(parent_object_id)
-                    if isinstance(parent_object_id, int) or str(parent_object_id).isdigit()
-                    else None,
-                    source_updated_at=source_updated_at,
-                    source_status=self._extract_source_status(record),
-                    sync_run_id=sync_run_id,
-                    payload_hash_value=payload_hash(record),
-                    payload=record,
-                    connection=connection,
-                )
-                record_context["source_changed"] = bool(upsert_result.inserted or upsert_result.updated)
-                counters.extracted += 1
-                counters.inserted += upsert_result.inserted
-                counters.updated += upsert_result.updated
-                page_inserted += upsert_result.inserted
-                page_updated += upsert_result.updated
-                page_contexts.append(record_context)
+        for attempt in range(2):
+            page_contexts = []
+            page_inserted = 0
+            page_updated = 0
+            try:
+                with self.repository.begin() as connection:
+                    for index, record in enumerate(records):
+                        self._ensure_not_stopped(entity_name)
+                        record_context = {
+                            "path_params": dict(resolved_path_params or source_context.get("path_params") or {}),
+                            "payload": record,
+                            "record_id": extract_first_value(
+                                {"payload": record, "path_params": resolved_path_params or source_context.get("path_params") or {}},
+                                step.record_id_keys,
+                            ),
+                            "source_updated_at": None,
+                            "source_changed": False,
+                        }
+                        object_id = record_context["record_id"]
+                        updated_at = extract_first_value(record_context, step.updated_at_keys or COMMON_UPDATED_AT_KEYS)
+                        source_updated_at = parse_olist_datetime(updated_at)
+                        record_context["source_updated_at"] = source_updated_at
+                        external_key = build_external_key(
+                            endpoint_path=endpoint_path,
+                            path_params=record_context["path_params"],
+                            payload=record,
+                            object_id=object_id,
+                            fallback_index=index,
+                        )
+                        upsert_result = self.repository.upsert_raw_payload(
+                            execution_id=execution_id,
+                            tenant_id=tenant_id,
+                            entity_name=entity_name,
+                            endpoint_path=endpoint_path,
+                            external_key=external_key,
+                            olist_object_id=int(object_id) if isinstance(object_id, int) or str(object_id).isdigit() else None,
+                            parent_olist_object_id=int(parent_object_id)
+                            if isinstance(parent_object_id, int) or str(parent_object_id).isdigit()
+                            else None,
+                            source_updated_at=source_updated_at,
+                            source_status=self._extract_source_status(record),
+                            sync_run_id=sync_run_id,
+                            payload_hash_value=payload_hash(record),
+                            payload=record,
+                            connection=connection,
+                        )
+                        record_context["source_changed"] = bool(upsert_result.inserted or upsert_result.updated)
+                        page_inserted += upsert_result.inserted
+                        page_updated += upsert_result.updated
+                        page_contexts.append(record_context)
+                break
+            except OperationalError:
+                if attempt >= 1:
+                    raise
+                continue
+
+        counters.extracted += len(records)
+        counters.inserted += page_inserted
+        counters.updated += page_updated
 
         self._log(
             execution_id=execution_id,
@@ -926,9 +1044,13 @@ class WorkflowRunner:
 
     @staticmethod
     def _should_skip_workflow_due_to_cooldown(root_step: EndpointStep, watermark_from: datetime | None) -> bool:
-        if root_step.incremental is None or root_step.incremental.mode != "cooldown":
+        return WorkflowRunner._should_skip_step_due_to_cooldown(root_step, watermark_from)
+
+    @staticmethod
+    def _should_skip_step_due_to_cooldown(step: EndpointStep, watermark_from: datetime | None) -> bool:
+        if step.incremental is None or step.incremental.mode != "cooldown":
             return False
-        cooldown_hours = root_step.incremental.cooldown_hours
+        cooldown_hours = step.incremental.cooldown_hours
         if cooldown_hours is None or watermark_from is None:
             return False
         return utc_now() < watermark_from + timedelta(hours=cooldown_hours)

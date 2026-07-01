@@ -46,6 +46,7 @@ class ExtractionSettings:
     safety_sleep_seconds: float
     default_tenant_code: str
     default_tenant_name: str
+    products_stock_cooldown_hours: int
     log_directory: Path
     log_file_path: Path
 
@@ -64,6 +65,7 @@ def build_settings() -> ExtractionSettings:
         safety_sleep_seconds=_as_float("OLIST_EXTRACT_SAFETY_SLEEP_SECONDS", 0.15),
         default_tenant_code=_get_env("OLIST_DEFAULT_TENANT_CODE", "default"),
         default_tenant_name=_get_env("OLIST_DEFAULT_TENANT_NAME", "Tenant Padrao Olist"),
+        products_stock_cooldown_hours=_as_int("OLIST_PRODUCTS_STOCK_COOLDOWN_HOURS", 24),
         log_directory=log_directory,
         log_file_path=log_directory / "olist_extraction.log",
     )

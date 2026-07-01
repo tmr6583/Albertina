@@ -488,20 +488,39 @@ function ExtractionHistoryItem({ item, isDownloading, onDownload }) {
         disabled={isDownloading}
       >
         <div className="history-download-main">
-          <strong>{`Execução ${item.executionId.slice(0, 8)}`}</strong>
-          <p className="history-download-description">
-            <span>{`Entidades com sucesso: ${item.entitiesSuccess}`}</span>
-            <span>{`interrompidas: ${item.entitiesCancelled}`}</span>
-            <span className={item.entitiesError > 0 ? 'history-error-count' : ''}>
-              {`com erro: ${item.entitiesError}`}
-            </span>
-            <span>{`requisições: ${item.requestCount}`}</span>
-          </p>
+          <div className="history-download-header">
+            <div className="history-download-title-block">
+              <strong>{`Execução ${item.executionId.slice(0, 8)}`}</strong>
+              <span className="history-download-subtitle">Resumo da execução concluída</span>
+            </div>
+            <span className="history-download-time">{item.time}</span>
+          </div>
+          <div className="history-metrics-grid">
+            <div className="history-stat history-duration-label">
+              <small>Duração</small>
+              <strong>{item.duration}</strong>
+            </div>
+            <div className="history-stat">
+              <small>Sucesso</small>
+              <strong>{item.entitiesSuccess}</strong>
+            </div>
+            <div className="history-stat">
+              <small>Interrompidas</small>
+              <strong>{item.entitiesCancelled}</strong>
+            </div>
+            <div className={`history-stat ${item.entitiesError > 0 ? 'history-error-count' : ''}`}>
+              <small>Com erro</small>
+              <strong>{item.entitiesError}</strong>
+            </div>
+            <div className="history-stat">
+              <small>Requisições</small>
+              <strong>{item.requestCount}</strong>
+            </div>
+          </div>
           <span className="history-download-hint">
             {isDownloading ? 'Preparando arquivo...' : 'Clique para baixar o log completo'}
           </span>
         </div>
-        <span>{item.time}</span>
       </button>
     </li>
   )
@@ -1418,6 +1437,7 @@ function ExtractionPage({
                     entitiesError: item.entitiesError ?? 0,
                     requestCount: item.requestCount ?? 0,
                     time: formatDateTime(item.startedAt),
+                    duration: item.durationLabel ?? formatDurationHuman(item.durationSeconds),
                     tone:
                       (item.entitiesError ?? 0) > 0
                         ? 'danger'
