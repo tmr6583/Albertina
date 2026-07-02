@@ -166,12 +166,17 @@ class OlistApiClient:
                         },
                     )
                     #endregion
-                    raise OlistInvalidJsonError(
+                    invalid_json_error = OlistInvalidJsonError(
                         endpoint_path=endpoint_path,
                         status_code=response.status_code,
                         response_text=response.text or "",
                         response_headers=response_headers,
-                    ) from exc
+                    )
+                    last_error = invalid_json_error
+                    if attempt < attempts:
+                        self._sleep_interruptibly(self.settings.safety_sleep_seconds)
+                        continue
+                    raise invalid_json_error from exc
             except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as exc:
                 last_error = exc
                 #region debug-point lastlog-http-error
@@ -319,12 +324,14 @@ class WorkflowRunner:
         repository: ExtractionRepository,
         access_token: str,
         stop_requested: Callable[[], bool] | None = None,
+        heartbeat_callback: Callable[[dict[str, Any]], None] | None = None,
     ):
         self.settings = settings
         self.repository = repository
         self.client = OlistApiClient(settings, repository, access_token, stop_requested=stop_requested)
         self.logger = build_logger("albertina.olist_extraction", settings.log_file_path)
         self.stop_requested = stop_requested or (lambda: False)
+        self.heartbeat_callback = heartbeat_callback
         self._debug_state: dict[str, Any] = {"entity": None, "step": None, "sourceIndex": 0, "sourceTotal": 0}
 
     def run_workflow(
@@ -997,13 +1004,28 @@ class WorkflowRunner:
 
         if isinstance(error, requests.HTTPError) and error.response is not None:
             status_code = error.response.status_code
-            response_preview = (error.response.text or "")[:200]
+            response_preview = self._build_response_preview(error.response.text or "")
             if status_code in step.ignore_http_statuses:
                 reason = f"status HTTP {status_code}"
         elif isinstance(error, OlistInvalidJsonError) and step.ignore_invalid_json:
             status_code = error.status_code
-            response_preview = error.response_text[:200]
+            response_preview = self._build_response_preview(error.response_text)
+            content_type = error.response_headers.get("Content-Type", "")
             if execution_type == "reconciliation":
+                self._log(
+                    execution_id=execution_id,
+                    sync_run_id=sync_run_id,
+                    tenant_id=tenant_id,
+                    entity_name=entity_name,
+                    level="ERROR",
+                    stage=step.name,
+                    message=(
+                        f"JSON invalido em {endpoint_path} durante conciliacao; a entidade sera interrompida "
+                        f"para evitar cobertura parcial. status={status_code}, content_type={content_type}, "
+                        f"preview={response_preview or '<vazio>'}"
+                    ),
+                    error_count=1,
+                )
                 return False
             reason = "JSON invalido"
 
@@ -1095,22 +1117,38 @@ class WorkflowRunner:
         error_count: int = 0,
         stack_trace: str | None = None,
     ) -> None:
-        self.repository.append_run_log(
-            execution_id=execution_id,
-            sync_run_id=sync_run_id,
-            tenant_id=tenant_id,
-            entity_name=entity_name,
-            level=level,
-            stage=stage,
-            message=message,
-            extracted_count=extracted_count,
-            inserted_count=inserted_count,
-            updated_count=updated_count,
-            error_count=error_count,
-            stack_trace=stack_trace,
-        )
+        try:
+            self.repository.append_run_log(
+                execution_id=execution_id,
+                sync_run_id=sync_run_id,
+                tenant_id=tenant_id,
+                entity_name=entity_name,
+                level=level,
+                stage=stage,
+                message=message,
+                extracted_count=extracted_count,
+                inserted_count=inserted_count,
+                updated_count=updated_count,
+                error_count=error_count,
+                stack_trace=stack_trace,
+            )
+        except Exception as exc:
+            self.logger.warning(
+                "Falha ao persistir sync_run_log da entidade %s na etapa %s: %s",
+                entity_name,
+                stage,
+                exc,
+                exc_info=exc,
+            )
         log_method = self.logger.error if level.upper() == "ERROR" else self.logger.info
         log_method(message)
+
+    @staticmethod
+    def _build_response_preview(raw_text: str, limit: int = 180) -> str:
+        compact_text = " ".join((raw_text or "").split())
+        if len(compact_text) <= limit:
+            return compact_text
+        return compact_text[:limit].rstrip() + "..."
 
     def _update_run_progress(
         self,
@@ -1119,18 +1157,26 @@ class WorkflowRunner:
         counters: WorkflowCounters,
         details: dict[str, Any] | None = None,
     ) -> None:
-        self.repository.update_sync_run_progress(
-            sync_run_id=sync_run_id,
-            request_count=counters.requests,
-            success_count=counters.inserted + counters.updated,
-            error_count=counters.errors,
-            details={
-                "extractedCount": counters.extracted,
-                "insertedCount": counters.inserted,
-                "updatedCount": counters.updated,
-                **(details or {}),
-            },
-        )
+        try:
+            self.repository.update_sync_run_progress(
+                sync_run_id=sync_run_id,
+                request_count=counters.requests,
+                success_count=counters.inserted + counters.updated,
+                error_count=counters.errors,
+                details={
+                    "extractedCount": counters.extracted,
+                    "insertedCount": counters.inserted,
+                    "updatedCount": counters.updated,
+                    **(details or {}),
+                },
+            )
+        except Exception as exc:
+            self.logger.warning(
+                "Falha ao atualizar progresso do sync_run %s: %s",
+                sync_run_id,
+                exc,
+                exc_info=exc,
+            )
 
     def _debug_heartbeat_loop(
         self,
@@ -1153,13 +1199,39 @@ class WorkflowRunner:
                 "insertedCount": counters.inserted,
                 "updatedCount": counters.updated,
             }
-            self.repository.update_sync_run_progress(
-                sync_run_id=sync_run_id,
-                request_count=counters.requests,
-                success_count=counters.inserted + counters.updated,
-                error_count=counters.errors,
-                details=heartbeat_details,
-            )
+            try:
+                self.repository.update_sync_run_progress(
+                    sync_run_id=sync_run_id,
+                    request_count=counters.requests,
+                    success_count=counters.inserted + counters.updated,
+                    error_count=counters.errors,
+                    details=heartbeat_details,
+                )
+            except Exception as exc:
+                self.logger.warning(
+                    "Falha ao atualizar heartbeat do sync_run %s: %s",
+                    sync_run_id,
+                    exc,
+                    exc_info=exc,
+                )
+            try:
+                if self.heartbeat_callback is not None:
+                    self.heartbeat_callback(
+                        {
+                            "executionId": execution_id,
+                            "syncRunId": sync_run_id,
+                            "tenantId": tenant_id,
+                            "entityName": entity_name,
+                            **heartbeat_details,
+                        }
+                    )
+            except Exception as exc:
+                self.logger.warning(
+                    "Falha ao renovar lease da execucao %s no heartbeat: %s",
+                    execution_id,
+                    exc,
+                    exc_info=exc,
+                )
             self._log(
                 execution_id=execution_id,
                 sync_run_id=sync_run_id,

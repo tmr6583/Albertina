@@ -35,6 +35,8 @@ def build_settings(log_dir: Path) -> ExtractionSettings:
         default_tenant_code="default",
         default_tenant_name="Tenant Padrao Olist",
         products_stock_cooldown_hours=24,
+        execution_lease_seconds=180,
+        stop_poll_seconds=0.01,
         log_directory=log_dir,
         log_file_path=log_dir / "olist_extraction.log",
     )
@@ -191,6 +193,20 @@ class OlistApiClientTests(unittest.TestCase):
         payload, _headers = self.client.request_json("/contatos")
 
         self.assertEqual(payload, {"items": [{"id": 10}]})
+        self.assertEqual(self.client.session.get.call_count, 2)
+        self.assertGreaterEqual(self.client._sleep_interruptibly.call_count, 1)
+
+    def test_request_json_retries_when_invalid_json_is_transient(self) -> None:
+        self.client.session.get = Mock(
+            side_effect=[
+                build_response(200, text="<html>temporario</html>", headers={"Content-Type": "text/html"}),
+                build_response(200, payload={"items": [{"id": 22}]}),
+            ]
+        )
+
+        payload, _headers = self.client.request_json("/contas-receber")
+
+        self.assertEqual(payload, {"items": [{"id": 22}]})
         self.assertEqual(self.client.session.get.call_count, 2)
         self.assertGreaterEqual(self.client._sleep_interruptibly.call_count, 1)
 
@@ -403,6 +419,23 @@ class WorkflowRunnerTests(unittest.TestCase):
         self.assertEqual(latest_progress["details"]["currentEndpointPath"], "/contatos/{idContato}")
         runner._log.assert_called_once()
         self.assertEqual(runner._log.call_args.kwargs["stage"], "heartbeat")
+
+    def test_log_persistence_failure_does_not_raise(self) -> None:
+        runner = self._build_runner()
+        runner.repository.append_run_log = Mock(side_effect=RuntimeError("log indisponivel"))
+
+        runner._log(
+            execution_id="exec-log",
+            sync_run_id="sync-log",
+            tenant_id="tenant-1",
+            entity_name="orders",
+            level="INFO",
+            stage="orders.list",
+            message="teste",
+        )
+
+        self.logger.warning.assert_called()
+        self.logger.info.assert_called_with("teste")
 
     def test_build_query_params_formats_orders_watermark_as_br_datetime(self) -> None:
         self.repository.watermark = datetime(2026, 6, 28, 6, 14, 13, tzinfo=timezone.utc)
@@ -1288,6 +1321,8 @@ class ExtractionServiceTests(unittest.TestCase):
                 default_tenant_code=settings.default_tenant_code,
                 default_tenant_name=settings.default_tenant_name,
                 products_stock_cooldown_hours=0,
+                execution_lease_seconds=settings.execution_lease_seconds,
+                stop_poll_seconds=settings.stop_poll_seconds,
                 log_directory=settings.log_directory,
                 log_file_path=settings.log_file_path,
             )
@@ -1306,46 +1341,37 @@ class ExtractionServiceTests(unittest.TestCase):
         service = ExtractionService()
         repository = Mock()
         repository.fetch_olist_settings.return_value = {"access_token": "token-ok"}
-        repository.try_acquire_execution_lock.return_value = object()
-        repository.recover_orphan_running_executions.return_value = []
+        repository.fetch_execution_control.return_value = {}
+        repository.recover_expired_execution.return_value = None
+        repository.claim_execution_slot.return_value = {"claimed": True, "execution_id": "exec-123"}
         repository.append_audit.return_value = None
         repository.get_watermark.return_value = datetime.now(timezone.utc)
         service.ensure_ready = Mock(return_value="tenant-1")
         service._get_repository = Mock(return_value=repository)
-        service._run_background = Mock()
+        service._launch_worker_process = Mock()
 
-        captured_kwargs: dict[str, object] = {}
-
-        class InlineThread:
-            def __init__(self, *, target, kwargs, daemon):
-                self.target = target
-                self.kwargs = kwargs
-                self.daemon = daemon
-
-            def start(self):
-                captured_kwargs.update(self.kwargs)
-
-        with patch("backend.olist_extraction.service.threading.Thread", InlineThread):
-            response = service.start_execution(
-                user_id="user-1",
-                actor_email="teste@empresa.com",
-                execution_type="incremental",
-            )
+        response = service.start_execution(
+            user_id="user-1",
+            actor_email="teste@empresa.com",
+            execution_type="incremental",
+        )
 
         self.assertEqual(response["status"], "started")
-        self.assertIn("workflow_names", captured_kwargs)
-        self.assertNotIn("products_stock", captured_kwargs["workflow_names"])
-        self.assertIsInstance(captured_kwargs["workflow_names"], list)
+        launch_kwargs = service._launch_worker_process.call_args.kwargs
+        self.assertIn("workflow_names", launch_kwargs)
+        self.assertNotIn("products_stock", launch_kwargs["workflow_names"])
+        self.assertIsInstance(launch_kwargs["workflow_names"], list)
 
     def test_get_overview_recovers_orphan_execution_when_lock_is_free(self) -> None:
         service = ExtractionService()
         repository = Mock()
         repository.fetch_olist_settings.return_value = {}
         repository.fetch_recent_executions.return_value = []
-        repository.fetch_active_execution_id.return_value = "exec-orphan"
-        repository.try_acquire_execution_lock.return_value = object()
-        repository.recover_orphan_running_executions.return_value = ["exec-orphan"]
-        repository.release_execution_lock.return_value = None
+        repository.fetch_execution_control.side_effect = [
+            {"active_execution_id": "exec-orphan", "stop_requested_at": None},
+            {"active_execution_id": None, "stop_requested_at": None},
+        ]
+        repository.recover_expired_execution.return_value = "exec-orphan"
         repository.append_audit.return_value = None
 
         service.ensure_ready = Mock(return_value="tenant-1")
@@ -1355,8 +1381,7 @@ class ExtractionServiceTests(unittest.TestCase):
 
         self.assertFalse(overview["running"])
         self.assertIsNone(overview["activeExecutionId"])
-        repository.recover_orphan_running_executions.assert_called_once()
-        repository.release_execution_lock.assert_called_once()
+        repository.recover_expired_execution.assert_called_once()
         repository.append_audit.assert_called_once()
 
     @patch("backend.olist_extraction.service.list_non_incremental_workflows")

@@ -16,6 +16,7 @@ from .config import ExtractionSettings
 
 POSTGRES_PREFIXES = ("postgres://", "postgresql://")
 EXTRACTION_ADVISORY_LOCK_KEY = 48203172001
+GLOBAL_EXECUTION_CONTROL_KEY = "global"
 OLIST_TOKEN_URL = "https://accounts.tiny.com.br/realms/tiny/protocol/openid-connect/token"
 ACCESS_TOKEN_FALLBACK_SECONDS = 4 * 60 * 60
 REFRESH_TOKEN_FALLBACK_SECONDS = 24 * 60 * 60
@@ -199,6 +200,27 @@ class ExtractionRepository:
             )
             """,
             """
+            CREATE TABLE IF NOT EXISTS olist_admin.execution_control (
+              control_key TEXT PRIMARY KEY,
+              active_execution_id UUID NULL,
+              execution_type TEXT NULL,
+              state TEXT NOT NULL DEFAULT 'idle',
+              worker_id TEXT NULL,
+              worker_pid INTEGER NULL,
+              lease_expires_at TIMESTAMPTZ NULL,
+              heartbeat_at TIMESTAMPTZ NULL,
+              stop_requested_at TIMESTAMPTZ NULL,
+              metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """,
+            """
+            INSERT INTO olist_admin.execution_control (control_key, state, metadata)
+            VALUES ('global', 'idle', '{}'::JSONB)
+            ON CONFLICT (control_key) DO NOTHING
+            """,
+            """
             CREATE TABLE IF NOT EXISTS olist_raw.api_payloads (
               raw_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
               tenant_id UUID NOT NULL REFERENCES olist_admin.tenants(tenant_id) ON DELETE CASCADE,
@@ -247,6 +269,7 @@ class ExtractionRepository:
             ("olist_admin.user_tenants", "trg_user_tenants_updated_at"),
             ("olist_admin.sync_runs", "trg_sync_runs_updated_at"),
             ("olist_admin.sync_watermarks", "trg_sync_watermarks_updated_at"),
+            ("olist_admin.execution_control", "trg_execution_control_updated_at"),
         ]
 
         policy_tables = (
@@ -343,6 +366,318 @@ class ExtractionRepository:
                     {"user_id": user_id, "tenant_id": tenant_id},
                 )
             return tenant_id
+
+    def claim_execution_slot(
+        self,
+        *,
+        execution_id: str,
+        execution_type: str,
+        lease_seconds: int,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload = json.dumps(metadata or {})
+        with self.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO olist_admin.execution_control (control_key, state, metadata)
+                    VALUES (:control_key, 'idle', '{}'::JSONB)
+                    ON CONFLICT (control_key) DO NOTHING
+                    """
+                ),
+                {"control_key": GLOBAL_EXECUTION_CONTROL_KEY},
+            )
+            claimed = connection.execute(
+                text(
+                    """
+                    UPDATE olist_admin.execution_control
+                    SET active_execution_id = CAST(:execution_id AS UUID),
+                        execution_type = :execution_type,
+                        state = 'starting',
+                        worker_id = NULL,
+                        worker_pid = NULL,
+                        lease_expires_at = NOW() + make_interval(secs => :lease_seconds),
+                        heartbeat_at = NOW(),
+                        stop_requested_at = NULL,
+                        metadata = CAST(:metadata AS JSONB)
+                    WHERE control_key = :control_key
+                      AND (
+                        active_execution_id IS NULL
+                        OR state = 'idle'
+                        OR lease_expires_at IS NULL
+                        OR lease_expires_at < NOW()
+                      )
+                    RETURNING active_execution_id, execution_type, state
+                    """
+                ),
+                {
+                    "control_key": GLOBAL_EXECUTION_CONTROL_KEY,
+                    "execution_id": execution_id,
+                    "execution_type": execution_type,
+                    "lease_seconds": lease_seconds,
+                    "metadata": payload,
+                },
+            ).mappings().first()
+            if claimed:
+                return {"claimed": True, "execution_id": str(claimed["active_execution_id"])}
+            current = connection.execute(
+                text(
+                    """
+                    SELECT active_execution_id,
+                           execution_type,
+                           state,
+                           lease_expires_at,
+                           heartbeat_at,
+                           stop_requested_at,
+                           metadata
+                    FROM olist_admin.execution_control
+                    WHERE control_key = :control_key
+                    """
+                ),
+                {"control_key": GLOBAL_EXECUTION_CONTROL_KEY},
+            ).mappings().one()
+            return {
+                "claimed": False,
+                "execution_id": str(current["active_execution_id"]) if current.get("active_execution_id") else None,
+                "execution_type": current.get("execution_type"),
+                "state": current.get("state"),
+                "lease_expires_at": current.get("lease_expires_at"),
+                "heartbeat_at": current.get("heartbeat_at"),
+                "stop_requested_at": current.get("stop_requested_at"),
+                "metadata": dict(current.get("metadata") or {}),
+            }
+
+    def adopt_execution_slot(
+        self,
+        *,
+        execution_id: str,
+        worker_id: str,
+        worker_pid: int,
+        lease_seconds: int,
+        metadata: dict[str, Any] | None = None,
+    ) -> bool:
+        payload = json.dumps(metadata or {})
+        with self.begin() as connection:
+            row = connection.execute(
+                text(
+                    """
+                    UPDATE olist_admin.execution_control
+                    SET state = 'running',
+                        worker_id = :worker_id,
+                        worker_pid = :worker_pid,
+                        lease_expires_at = NOW() + make_interval(secs => :lease_seconds),
+                        heartbeat_at = NOW(),
+                        metadata = COALESCE(metadata, '{}'::JSONB) || CAST(:metadata AS JSONB)
+                    WHERE control_key = :control_key
+                      AND active_execution_id = CAST(:execution_id AS UUID)
+                    RETURNING control_key
+                    """
+                ),
+                {
+                    "control_key": GLOBAL_EXECUTION_CONTROL_KEY,
+                    "execution_id": execution_id,
+                    "worker_id": worker_id,
+                    "worker_pid": worker_pid,
+                    "lease_seconds": lease_seconds,
+                    "metadata": payload,
+                },
+            ).mappings().first()
+            return row is not None
+
+    def renew_execution_slot(
+        self,
+        *,
+        execution_id: str,
+        worker_id: str,
+        lease_seconds: int,
+        metadata: dict[str, Any] | None = None,
+    ) -> bool:
+        payload = json.dumps(metadata or {})
+        with self.begin() as connection:
+            row = connection.execute(
+                text(
+                    """
+                    UPDATE olist_admin.execution_control
+                    SET state = CASE WHEN stop_requested_at IS NULL THEN 'running' ELSE 'stopping' END,
+                        lease_expires_at = NOW() + make_interval(secs => :lease_seconds),
+                        heartbeat_at = NOW(),
+                        metadata = COALESCE(metadata, '{}'::JSONB) || CAST(:metadata AS JSONB)
+                    WHERE control_key = :control_key
+                      AND active_execution_id = CAST(:execution_id AS UUID)
+                      AND worker_id = :worker_id
+                    RETURNING control_key
+                    """
+                ),
+                {
+                    "control_key": GLOBAL_EXECUTION_CONTROL_KEY,
+                    "execution_id": execution_id,
+                    "worker_id": worker_id,
+                    "lease_seconds": lease_seconds,
+                    "metadata": payload,
+                },
+            ).mappings().first()
+            return row is not None
+
+    def clear_execution_slot(
+        self,
+        *,
+        execution_id: str,
+        worker_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        payload = json.dumps(metadata or {})
+        with self.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE olist_admin.execution_control
+                    SET active_execution_id = NULL,
+                        execution_type = NULL,
+                        state = 'idle',
+                        worker_id = NULL,
+                        worker_pid = NULL,
+                        lease_expires_at = NULL,
+                        heartbeat_at = NULL,
+                        stop_requested_at = NULL,
+                        metadata = CAST(:metadata AS JSONB)
+                    WHERE control_key = :control_key
+                      AND active_execution_id = CAST(:execution_id AS UUID)
+                      AND (:worker_id IS NULL OR worker_id = :worker_id)
+                    """
+                ),
+                {
+                    "control_key": GLOBAL_EXECUTION_CONTROL_KEY,
+                    "execution_id": execution_id,
+                    "worker_id": worker_id,
+                    "metadata": payload,
+                },
+            )
+
+    def fetch_execution_control(self) -> dict[str, Any] | None:
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    """
+                    SELECT control_key,
+                           active_execution_id,
+                           execution_type,
+                           state,
+                           worker_id,
+                           worker_pid,
+                           lease_expires_at,
+                           heartbeat_at,
+                           stop_requested_at,
+                           metadata
+                    FROM olist_admin.execution_control
+                    WHERE control_key = :control_key
+                    """
+                ),
+                {"control_key": GLOBAL_EXECUTION_CONTROL_KEY},
+            ).mappings().first()
+            if row is None:
+                return None
+            payload = dict(row)
+            if payload.get("active_execution_id") is not None:
+                payload["active_execution_id"] = str(payload["active_execution_id"])
+            payload["metadata"] = dict(payload.get("metadata") or {})
+            return payload
+
+    def request_execution_stop(self) -> dict[str, Any] | None:
+        with self.begin() as connection:
+            row = connection.execute(
+                text(
+                    """
+                    UPDATE olist_admin.execution_control
+                    SET stop_requested_at = COALESCE(stop_requested_at, NOW()),
+                        state = CASE WHEN active_execution_id IS NULL THEN 'idle' ELSE 'stopping' END
+                    WHERE control_key = :control_key
+                      AND active_execution_id IS NOT NULL
+                    RETURNING active_execution_id, state, stop_requested_at
+                    """
+                ),
+                {"control_key": GLOBAL_EXECUTION_CONTROL_KEY},
+            ).mappings().first()
+            if row is None:
+                return None
+            return {
+                "active_execution_id": str(row["active_execution_id"]),
+                "state": row["state"],
+                "stop_requested_at": row["stop_requested_at"],
+            }
+
+    def is_stop_requested(self, execution_id: str) -> bool:
+        with self.engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    """
+                    SELECT stop_requested_at
+                    FROM olist_admin.execution_control
+                    WHERE control_key = :control_key
+                      AND active_execution_id = CAST(:execution_id AS UUID)
+                    """
+                ),
+                {
+                    "control_key": GLOBAL_EXECUTION_CONTROL_KEY,
+                    "execution_id": execution_id,
+                },
+            ).mappings().first()
+            return bool(row and row.get("stop_requested_at") is not None)
+
+    def recover_expired_execution(self, note: str) -> str | None:
+        with self.begin() as connection:
+            control_row = connection.execute(
+                text(
+                    """
+                    SELECT active_execution_id
+                    FROM olist_admin.execution_control
+                    WHERE control_key = :control_key
+                      AND active_execution_id IS NOT NULL
+                      AND lease_expires_at IS NOT NULL
+                      AND lease_expires_at < NOW()
+                    FOR UPDATE
+                    """
+                ),
+                {"control_key": GLOBAL_EXECUTION_CONTROL_KEY},
+            ).mappings().first()
+            if control_row is None:
+                return None
+            execution_id = str(control_row["active_execution_id"])
+            connection.execute(
+                text(
+                    """
+                    UPDATE olist_admin.sync_runs
+                    SET status = 'cancelled',
+                        error_count = error_count + 1,
+                        finished_at = NOW(),
+                        details = COALESCE(details, '{}'::JSONB) || CAST(:note AS JSONB)
+                    WHERE status = 'running'
+                      AND execution_id = CAST(:execution_id AS UUID)
+                    """
+                ),
+                {
+                    "execution_id": execution_id,
+                    "note": json.dumps({"recoveryNote": note}),
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    UPDATE olist_admin.execution_control
+                    SET active_execution_id = NULL,
+                        execution_type = NULL,
+                        state = 'idle',
+                        worker_id = NULL,
+                        worker_pid = NULL,
+                        lease_expires_at = NULL,
+                        heartbeat_at = NULL,
+                        stop_requested_at = NULL,
+                        metadata = '{}'::JSONB
+                    WHERE control_key = :control_key
+                    """
+                ),
+                {"control_key": GLOBAL_EXECUTION_CONTROL_KEY},
+            )
+            return execution_id
 
     def try_acquire_execution_lock(self) -> Any | None:
         raw_connection = self.engine.raw_connection()
@@ -870,6 +1205,9 @@ class ExtractionRepository:
             return [dict(row) for row in rows]
 
     def fetch_active_execution_id(self) -> str | None:
+        control_row = self.fetch_execution_control()
+        if control_row and control_row.get("active_execution_id"):
+            return str(control_row["active_execution_id"])
         with self.engine.connect() as connection:
             row = connection.execute(
                 text(
