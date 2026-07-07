@@ -68,7 +68,7 @@ def build_settings() -> ExtractionSettings:
         default_tenant_code=_get_env("OLIST_DEFAULT_TENANT_CODE", "default"),
         default_tenant_name=_get_env("OLIST_DEFAULT_TENANT_NAME", "Tenant Padrao Olist"),
         products_stock_cooldown_hours=_as_int("OLIST_PRODUCTS_STOCK_COOLDOWN_HOURS", 24),
-        execution_lease_seconds=_as_int("OLIST_EXECUTION_LEASE_SECONDS", 180),
+        execution_lease_seconds=_as_int("OLIST_EXECUTION_LEASE_SECONDS", 900),
         stop_poll_seconds=_as_float("OLIST_STOP_POLL_SECONDS", 2.0),
         log_directory=log_directory,
         log_file_path=log_directory / "olist_extraction.log",

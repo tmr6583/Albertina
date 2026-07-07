@@ -624,6 +624,7 @@ class ExtractionRepository:
             return bool(row and row.get("stop_requested_at") is not None)
 
     def recover_expired_execution(self, note: str) -> str | None:
+        grace_seconds = max(self.settings.execution_lease_seconds, 600)
         with self.begin() as connection:
             control_row = connection.execute(
                 text(
@@ -634,10 +635,17 @@ class ExtractionRepository:
                       AND active_execution_id IS NOT NULL
                       AND lease_expires_at IS NOT NULL
                       AND lease_expires_at < NOW()
+                      AND (
+                        heartbeat_at IS NULL
+                        OR heartbeat_at < NOW() - make_interval(secs => :grace_seconds)
+                      )
                     FOR UPDATE
                     """
                 ),
-                {"control_key": GLOBAL_EXECUTION_CONTROL_KEY},
+                {
+                    "control_key": GLOBAL_EXECUTION_CONTROL_KEY,
+                    "grace_seconds": grace_seconds,
+                },
             ).mappings().first()
             if control_row is None:
                 return None

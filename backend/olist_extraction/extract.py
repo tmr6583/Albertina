@@ -150,6 +150,20 @@ class OlistApiClient:
                     raise rate_limit_error
                 response.raise_for_status()
                 self._respect_rate_limit(response_headers)
+                if response.status_code == 204:
+                    #region debug-point reconciliation-sync-http-204
+                    _debug_report(
+                        "reconciliation-sync-http-204",
+                        "backend/olist_extraction/extract.py:request_json",
+                        "http 204 treated as empty payload",
+                        {
+                            "endpointPath": endpoint_path,
+                            "statusCode": response.status_code,
+                            "contentType": response.headers.get("Content-Type"),
+                        },
+                    )
+                    #endregion
+                    return None, response_headers
                 try:
                     return response.json(), response_headers
                 except ValueError as exc:
@@ -333,6 +347,7 @@ class WorkflowRunner:
         self.stop_requested = stop_requested or (lambda: False)
         self.heartbeat_callback = heartbeat_callback
         self._debug_state: dict[str, Any] = {"entity": None, "step": None, "sourceIndex": 0, "sourceTotal": 0}
+        self._lease_failed = threading.Event()
 
     def run_workflow(
         self,
@@ -458,13 +473,9 @@ class WorkflowRunner:
                         counters=counters,
                     )
                     contexts_by_step[step.name] = extracted_contexts
-                    if execution_type != "reconciliation" and root_step.incremental and step.name == root_step.name:
+                    if root_step.incremental and step.name == root_step.name:
                         next_watermark = self._resolve_next_watermark(extracted_contexts, started_at)
-                    elif (
-                        execution_type != "reconciliation"
-                        and step.incremental is not None
-                        and step.incremental.mode == "cooldown"
-                    ):
+                    elif step.incremental is not None and step.incremental.mode == "cooldown":
                         step_watermarks_to_save[step.endpoint_path] = utc_now()
 
                 if execution_type == "reconciliation":
@@ -485,7 +496,7 @@ class WorkflowRunner:
                             f"Registros marcados como deletados: {reconciled_deleted_count}."
                         ),
                     )
-                elif root_step.incremental:
+                if status == "success" and root_step.incremental:
                     self.repository.save_watermark(
                         tenant_id,
                         workflow.entity_name,
@@ -529,6 +540,28 @@ class WorkflowRunner:
             self.logger.exception("Falha na entidade %s", workflow.entity_name)
         finally:
             duration_seconds = max((utc_now() - started_at).total_seconds(), 0.0)
+            planned_watermark_to = (
+                (next_watermark or started_at)
+                if status == "success" and root_step.incremental
+                else None
+            )
+            #region debug-point reconciliation-sync-watermark-finish
+            _debug_report(
+                "reconciliation-sync-watermark-finish",
+                "backend/olist_extraction/extract.py:run_workflow",
+                "workflow finishing with watermark decision",
+                {
+                    "executionId": execution_id,
+                    "entityName": workflow.entity_name,
+                    "executionType": execution_type,
+                    "status": status,
+                    "rootStep": root_step.name,
+                    "rootIncrementalMode": root_step.incremental.mode if root_step.incremental else None,
+                    "nextWatermark": next_watermark.isoformat() if next_watermark else None,
+                    "plannedWatermarkTo": planned_watermark_to.isoformat() if planned_watermark_to else None,
+                },
+            )
+            #endregion
             details = {
                 "entity": workflow.entity_name,
                 "executionType": execution_type,
@@ -546,11 +579,7 @@ class WorkflowRunner:
                 request_count=counters.requests,
                 success_count=counters.inserted + counters.updated,
                 error_count=counters.errors,
-                watermark_to=(
-                    (next_watermark or started_at)
-                    if status == "success" and execution_type != "reconciliation" and root_step.incremental
-                    else None
-                ),
+                watermark_to=planned_watermark_to,
                 details=details,
             )
             self._log(
@@ -716,18 +745,30 @@ class WorkflowRunner:
                                 pass
                         if recovered_from_orders_400:
                             counters.requests += 1
-                            page_contexts = self._persist_payloads(
-                                execution_id=execution_id,
-                                sync_run_id=sync_run_id,
-                                tenant_id=tenant_id,
-                                entity_name=entity_name,
-                                endpoint_path=endpoint_path,
-                                resolved_path_params=path_params,
-                                source_context=source_context,
-                                payload=payload,
-                                step=step,
-                                counters=counters,
-                            )
+                            if payload is None:
+                                page_contexts = []
+                                self._log(
+                                    execution_id=execution_id,
+                                    sync_run_id=sync_run_id,
+                                    tenant_id=tenant_id,
+                                    entity_name=entity_name,
+                                    level="INFO",
+                                    stage=step.name,
+                                    message=f"Etapa {step.name} retornou 204 sem conteudo em {endpoint_path}; escopo considerado vazio.",
+                                )
+                            else:
+                                page_contexts = self._persist_payloads(
+                                    execution_id=execution_id,
+                                    sync_run_id=sync_run_id,
+                                    tenant_id=tenant_id,
+                                    entity_name=entity_name,
+                                    endpoint_path=endpoint_path,
+                                    resolved_path_params=path_params,
+                                    source_context=source_context,
+                                    payload=payload,
+                                    step=step,
+                                    counters=counters,
+                                )
                             self._update_run_progress(
                                 sync_run_id=sync_run_id,
                                 counters=counters,
@@ -758,18 +799,30 @@ class WorkflowRunner:
                             break
                         raise
                     counters.requests += 1
-                    page_contexts = self._persist_payloads(
-                        execution_id=execution_id,
-                        sync_run_id=sync_run_id,
-                        tenant_id=tenant_id,
-                        entity_name=entity_name,
-                        endpoint_path=endpoint_path,
-                        resolved_path_params=path_params,
-                        source_context=source_context,
-                        payload=payload,
-                        step=step,
-                        counters=counters,
-                    )
+                    if payload is None:
+                        page_contexts = []
+                        self._log(
+                            execution_id=execution_id,
+                            sync_run_id=sync_run_id,
+                            tenant_id=tenant_id,
+                            entity_name=entity_name,
+                            level="INFO",
+                            stage=step.name,
+                            message=f"Etapa {step.name} retornou 204 sem conteudo em {endpoint_path}; escopo considerado vazio.",
+                        )
+                    else:
+                        page_contexts = self._persist_payloads(
+                            execution_id=execution_id,
+                            sync_run_id=sync_run_id,
+                            tenant_id=tenant_id,
+                            entity_name=entity_name,
+                            endpoint_path=endpoint_path,
+                            resolved_path_params=path_params,
+                            source_context=source_context,
+                            payload=payload,
+                            step=step,
+                            counters=counters,
+                        )
                     self._update_run_progress(
                         sync_run_id=sync_run_id,
                         counters=counters,
@@ -804,18 +857,30 @@ class WorkflowRunner:
                     continue
                 raise
             counters.requests += 1
-            page_contexts = self._persist_payloads(
-                execution_id=execution_id,
-                sync_run_id=sync_run_id,
-                tenant_id=tenant_id,
-                entity_name=entity_name,
-                endpoint_path=endpoint_path,
-                resolved_path_params=path_params,
-                source_context=source_context,
-                payload=payload,
-                step=step,
-                counters=counters,
-            )
+            if payload is None:
+                page_contexts = []
+                self._log(
+                    execution_id=execution_id,
+                    sync_run_id=sync_run_id,
+                    tenant_id=tenant_id,
+                    entity_name=entity_name,
+                    level="INFO",
+                    stage=step.name,
+                    message=f"Etapa {step.name} retornou 204 sem conteudo em {endpoint_path}; escopo considerado vazio.",
+                )
+            else:
+                page_contexts = self._persist_payloads(
+                    execution_id=execution_id,
+                    sync_run_id=sync_run_id,
+                    tenant_id=tenant_id,
+                    entity_name=entity_name,
+                    endpoint_path=endpoint_path,
+                    resolved_path_params=path_params,
+                    source_context=source_context,
+                    payload=payload,
+                    step=step,
+                    counters=counters,
+                )
             self._update_run_progress(
                 sync_run_id=sync_run_id,
                 counters=counters,
@@ -1011,6 +1076,23 @@ class WorkflowRunner:
             status_code = error.status_code
             response_preview = self._build_response_preview(error.response_text)
             content_type = error.response_headers.get("Content-Type", "")
+            #region debug-point reconciliation-sync-invalid-json
+            _debug_report(
+                "reconciliation-sync-invalid-json",
+                "backend/olist_extraction/extract.py:_handle_ignorable_step_error",
+                "invalid json encountered on ignorable step",
+                {
+                    "executionId": execution_id,
+                    "entityName": entity_name,
+                    "executionType": execution_type,
+                    "stepName": step.name,
+                    "endpointPath": endpoint_path,
+                    "statusCode": status_code,
+                    "contentType": content_type,
+                    "responsePreview": response_preview,
+                },
+            )
+            #endregion
             if execution_type == "reconciliation":
                 self._log(
                     execution_id=execution_id,
@@ -1216,6 +1298,23 @@ class WorkflowRunner:
                 )
             try:
                 if self.heartbeat_callback is not None:
+                    #region debug-point reconciliation-sync-heartbeat-before-renew
+                    _debug_report(
+                        "reconciliation-sync-heartbeat-before-renew",
+                        "backend/olist_extraction/extract.py:_debug_heartbeat_loop",
+                        "renewing execution lease from heartbeat",
+                        {
+                            "executionId": execution_id,
+                            "syncRunId": sync_run_id,
+                            "entityName": entity_name,
+                            "currentStep": heartbeat_details.get("currentStep"),
+                            "currentEndpointPath": heartbeat_details.get("currentEndpointPath"),
+                            "sourceContextsProcessed": heartbeat_details.get("sourceContextsProcessed"),
+                            "sourceContextsTotal": heartbeat_details.get("sourceContextsTotal"),
+                            "heartbeatAt": heartbeat_details.get("heartbeatAt"),
+                        },
+                    )
+                    #endregion
                     self.heartbeat_callback(
                         {
                             "executionId": execution_id,
@@ -1226,6 +1325,22 @@ class WorkflowRunner:
                         }
                     )
             except Exception as exc:
+                #region debug-point reconciliation-sync-heartbeat-renew-failed
+                _debug_report(
+                    "reconciliation-sync-heartbeat-renew-failed",
+                    "backend/olist_extraction/extract.py:_debug_heartbeat_loop",
+                    "lease renewal failed during heartbeat",
+                    {
+                        "executionId": execution_id,
+                        "syncRunId": sync_run_id,
+                        "entityName": entity_name,
+                        "currentStep": heartbeat_details.get("currentStep"),
+                        "currentEndpointPath": heartbeat_details.get("currentEndpointPath"),
+                        "error": repr(exc),
+                    },
+                )
+                #endregion
+                self._lease_failed.set()
                 self.logger.warning(
                     "Falha ao renovar lease da execucao %s no heartbeat: %s",
                     execution_id,
@@ -1252,6 +1367,8 @@ class WorkflowRunner:
             )
 
     def _ensure_not_stopped(self, entity_name: str) -> None:
+        if self._lease_failed.is_set():
+            raise RuntimeError(f"Falha ao renovar a lease da execucao durante a entidade {entity_name}.")
         if self.stop_requested():
             raise ExtractionStopped(f"Interrupcao solicitada durante a entidade {entity_name}.")
 

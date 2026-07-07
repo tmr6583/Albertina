@@ -479,6 +479,8 @@ function ExtractionRunItem({ item }) {
 }
 
 function ExtractionHistoryItem({ item, isDownloading, onDownload }) {
+  const executionTypeLabel = labelFromExecutionType(item.executionType)
+
   return (
     <li>
       <button
@@ -491,7 +493,10 @@ function ExtractionHistoryItem({ item, isDownloading, onDownload }) {
           <div className="history-download-header">
             <div className="history-download-title-block">
               <strong>{`Execução ${item.executionId.slice(0, 8)}`}</strong>
-              <span className="history-download-subtitle">Resumo da execução concluída</span>
+              <span className="history-download-subtitle">
+                <span>Resumo da execução concluída • </span>
+                <span className="history-download-subtitle-type">{executionTypeLabel}</span>
+              </span>
             </div>
             <span className="history-download-time">{item.time}</span>
           </div>
@@ -1165,11 +1170,6 @@ function ExtractionPage({
           label: 'Status',
           value: executionStatus,
           detail: `${remainingEntities} entidades restantes nesta execução`,
-        },
-        {
-          label: 'Tipo',
-          value: labelFromExecutionType(activeExecution.executionType),
-          detail: 'Modo operacional da execução ativa ou mais recente',
         },
         {
           label: 'Período',

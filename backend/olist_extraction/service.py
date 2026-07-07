@@ -412,7 +412,25 @@ class ExtractionService:
         )
 
         def renew_lease(payload: dict[str, Any]) -> None:
-            repository.renew_execution_slot(
+            # #region debug-point reconciliation-sync-lease-renew-request
+            _debug_report(
+                "reconciliation-sync-lease-renew-request",
+                "backend/olist_extraction/service.py:_run_worker",
+                "renew execution slot requested",
+                {
+                    "executionId": execution_id,
+                    "workerId": worker_id,
+                    "entityName": payload.get("entityName"),
+                    "currentStep": payload.get("currentStep"),
+                    "currentEndpointPath": payload.get("currentEndpointPath"),
+                    "sourceContextsProcessed": payload.get("sourceContextsProcessed"),
+                    "sourceContextsTotal": payload.get("sourceContextsTotal"),
+                    "heartbeatAt": payload.get("heartbeatAt"),
+                    "leaseSeconds": self.settings.execution_lease_seconds,
+                },
+            )
+            # #endregion
+            renewed = repository.renew_execution_slot(
                 execution_id=execution_id,
                 worker_id=worker_id,
                 lease_seconds=self.settings.execution_lease_seconds,
@@ -425,6 +443,22 @@ class ExtractionService:
                     "heartbeatAt": payload.get("heartbeatAt"),
                 },
             )
+            if not renewed:
+                raise RuntimeError(f"Nao foi possivel renovar a lease da execucao {execution_id}.")
+            # #region debug-point reconciliation-sync-lease-renew-done
+            _debug_report(
+                "reconciliation-sync-lease-renew-done",
+                "backend/olist_extraction/service.py:_run_worker",
+                "renew execution slot completed",
+                {
+                    "executionId": execution_id,
+                    "workerId": worker_id,
+                    "entityName": payload.get("entityName"),
+                    "currentStep": payload.get("currentStep"),
+                    "currentEndpointPath": payload.get("currentEndpointPath"),
+                },
+            )
+            # #endregion
 
         try:
             self._run_background(

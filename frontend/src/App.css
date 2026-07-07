@@ -1491,6 +1491,10 @@
   letter-spacing: 0.08em;
 }
 
+.history-download-subtitle-type {
+  color: #ffffff;
+}
+
 .history-download-time {
   flex: 0 0 auto;
   color: #d7ebff;

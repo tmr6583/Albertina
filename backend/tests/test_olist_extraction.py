@@ -210,6 +210,14 @@ class OlistApiClientTests(unittest.TestCase):
         self.assertEqual(self.client.session.get.call_count, 2)
         self.assertGreaterEqual(self.client._sleep_interruptibly.call_count, 1)
 
+    def test_request_json_treats_204_no_content_as_empty_payload(self) -> None:
+        self.client.session.get = Mock(return_value=build_response(204))
+
+        payload, _headers = self.client.request_json("/contas-receber/1/recebimentos")
+
+        self.assertIsNone(payload)
+        self.assertEqual(self.client.session.get.call_count, 1)
+
     def test_request_json_adjusts_date_range_when_plan_blocks_old_start_date(self) -> None:
         captured_params: list[dict[str, object] | None] = []
         responses = iter(
@@ -1212,7 +1220,8 @@ class WorkflowRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "success")
         self.assertEqual(len(self.repository.reconcile_calls), 1)
         self.assertEqual(self.repository.reconcile_calls[0]["execution_id"], "exec-7")
-        self.assertIsNone(self.repository.saved_watermark)
+        self.assertIsNotNone(self.repository.saved_watermark)
+        self.assertIsNotNone(self.repository.finished_runs[-1]["watermark_to"])
         self.assertEqual(self.repository.finished_runs[-1]["details"]["reconciledDeletedCount"], 3)
 
     def test_reconciliation_invalid_json_fails_entity_and_skips_delete_reconcile(self) -> None:
@@ -1272,6 +1281,66 @@ class WorkflowRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "error")
         self.assertEqual(len(self.repository.reconcile_calls), 0)
         self.assertEqual(self.repository.finished_runs[-1]["details"]["reconciledDeletedCount"], 0)
+
+    def test_reconciliation_204_no_content_is_treated_as_empty_scope(self) -> None:
+        runner = self._build_runner()
+        runner.client = Mock()
+        runner.client.request_json = Mock(
+            side_effect=[
+                (
+                    {
+                        "items": [
+                            {"id": 11, "dataEmissao": "2026-06-28 01:00:00"},
+                        ]
+                    },
+                    {},
+                ),
+                (None, {}),
+            ]
+        )
+
+        workflow = Workflow(
+            entity_name="accounts_receivable",
+            root_step="accounts_receivable.list",
+            steps=(
+                EndpointStep(
+                    name="accounts_receivable.list",
+                    endpoint_path="/contas-receber",
+                    pagination=True,
+                    incremental=IncrementalStrategy(
+                        mode="date_range",
+                        start_param="dataInicialEmissao",
+                        end_param="dataFinalEmissao",
+                    ),
+                    record_id_keys=("id",),
+                ),
+                EndpointStep(
+                    name="accounts_receivable.receipts",
+                    endpoint_path="/contas-receber/{idContaReceber}/recebimentos",
+                    source_step="accounts_receivable.list",
+                    path_params={"idContaReceber": ("record_id", "id", "idContaReceber")},
+                    ignore_invalid_json=True,
+                ),
+            ),
+        )
+
+        result = runner.run_workflow(
+            execution_id="exec-reconciliation-204",
+            execution_type="reconciliation",
+            tenant_id="tenant-1",
+            workflow=workflow,
+        )
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(len(self.repository.reconcile_calls), 1)
+        self.assertEqual(self.repository.finished_runs[-1]["details"]["reconciledDeletedCount"], 0)
+
+    def test_ensure_not_stopped_raises_when_lease_is_lost(self) -> None:
+        runner = self._build_runner()
+        runner._lease_failed.set()
+
+        with self.assertRaises(RuntimeError):
+            runner._ensure_not_stopped("invoices")
 
 
 class ExtractionServiceTests(unittest.TestCase):
