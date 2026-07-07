@@ -18,6 +18,7 @@ from backend.olist_extraction.catalog import (
     list_non_incremental_workflows,
 )
 from backend.olist_extraction.config import ExtractionSettings
+from backend.olist_extraction.core_sync import CoreSyncService, SyncEntityStats
 from backend.olist_extraction.extract import OlistApiClient, OlistInvalidJsonError, WorkflowCounters, WorkflowRunner
 from backend.olist_extraction.load import UpsertResult
 from backend.olist_extraction.service import ExtractionService
@@ -1343,6 +1344,153 @@ class WorkflowRunnerTests(unittest.TestCase):
             runner._ensure_not_stopped("invoices")
 
 
+class CoreSyncServiceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.repository = Mock()
+        self.service = CoreSyncService(self.repository)
+
+    def test_sync_accounts_receivable_inserts_markers_and_receipts(self) -> None:
+        header_row = {
+            "endpoint_path": "/contas-receber/10",
+            "payload": {
+                "id": 10,
+                "cliente": {"id": 20},
+                "categoria": {"id": 30},
+                "marcadores": [{"descricao": "Urgente"}],
+            },
+            "source_updated_at": datetime(2026, 7, 7, tzinfo=timezone.utc),
+        }
+        receipt_row = {
+            "endpoint_path": "/contas-receber/10/recebimentos",
+            "payload": {
+                "id": 50,
+                "data": "2026-07-06",
+                "valorPago": 1.92,
+                "idFormaRecebimento": 40,
+                "idFormaPagamento": 41,
+            },
+            "source_updated_at": None,
+        }
+        stats: dict[str, SyncEntityStats] = {}
+
+        with patch.object(self.service, "_fetch_rows", return_value=[header_row, receipt_row]), patch.object(
+            self.service,
+            "_lookup_uuid_map",
+            side_effect=[
+                {20: "contact-20"},
+                {30: "category-30"},
+                {},
+                {},
+                {40: "receipt-40"},
+                {41: "payment-41"},
+            ],
+        ), patch.object(self.service, "_upsert_row", return_value="ar-10"), patch.object(
+            self.service,
+            "_delete_children",
+        ), patch.object(self.service, "_insert_row") as insert_row:
+            self.service._sync_accounts_receivable(Mock(), "tenant-1", stats, set())
+
+        self.assertEqual(stats["accounts_receivable"], SyncEntityStats(processed=1, children=2))
+        inserted_tables = [call.args[1] for call in insert_row.call_args_list]
+        self.assertIn("olist_core.accounts_receivable_receipts", inserted_tables)
+        self.assertIn("olist_core.accounts_receivable_markers", inserted_tables)
+
+    def test_sync_purchase_orders_inserts_markers(self) -> None:
+        rows = [
+            {
+                "endpoint_path": "/ordem-compra/99",
+                "payload": {
+                    "id": 99,
+                    "contato": {"id": 10},
+                    "itens": [{"produto": {"id": 501}, "quantidade": 2, "preco": 4}],
+                    "marcadores": [{"descricao": "Reposicao"}],
+                },
+                "source_updated_at": datetime(2026, 7, 7, tzinfo=timezone.utc),
+            }
+        ]
+        stats: dict[str, SyncEntityStats] = {}
+
+        with patch.object(self.service, "_fetch_rows", return_value=rows), patch.object(
+            self.service,
+            "_lookup_uuid_map",
+            side_effect=[{10: "contact-10"}, {501: "product-501"}],
+        ), patch.object(self.service, "_upsert_row", return_value="po-99"), patch.object(
+            self.service,
+            "_delete_children",
+        ), patch.object(self.service, "_insert_row") as insert_row:
+            self.service._sync_purchase_orders(Mock(), "tenant-1", stats, set())
+
+        self.assertEqual(stats["purchase_orders"], SyncEntityStats(processed=1, children=2))
+        inserted_tables = [call.args[1] for call in insert_row.call_args_list]
+        self.assertIn("olist_core.purchase_order_items", inserted_tables)
+        self.assertIn("olist_core.purchase_order_markers", inserted_tables)
+
+    def test_sync_crm_subjects_inserts_marker_links(self) -> None:
+        rows = [
+            {
+                "endpoint_path": "/crm/assuntos/77",
+                "payload": {
+                    "id": 77,
+                    "cliente": {"id": 20},
+                    "estagio": {"id": 30},
+                    "marcadores": [{"descricao": "VIP", "cor": "#ff0"}],
+                },
+                "source_updated_at": datetime(2026, 7, 7, tzinfo=timezone.utc),
+            }
+        ]
+        stats: dict[str, SyncEntityStats] = {}
+
+        with patch.object(self.service, "_fetch_rows", return_value=rows), patch.object(
+            self.service,
+            "_lookup_uuid_map",
+            side_effect=[{20: "contact-20"}, {30: "stage-30"}],
+        ), patch.object(
+            self.service,
+            "_upsert_row",
+            side_effect=["subject-77", "marker-vip"],
+        ) as upsert_row, patch.object(self.service, "_delete_children"), patch.object(
+            self.service,
+            "_insert_row",
+        ) as insert_row:
+            self.service._sync_crm_subjects(Mock(), "tenant-1", stats, set())
+
+        self.assertEqual(stats["crm_subjects"], SyncEntityStats(processed=1, children=1))
+        upsert_tables = [call.args[1] for call in upsert_row.call_args_list]
+        self.assertIn("olist_core.crm_subjects", upsert_tables)
+        self.assertIn("olist_core.crm_markers", upsert_tables)
+        inserted_tables = [call.args[1] for call in insert_row.call_args_list]
+        self.assertIn("olist_core.crm_subject_markers", inserted_tables)
+
+    def test_sync_crm_subjects_accepts_null_recent_sections(self) -> None:
+        rows = [
+            {
+                "endpoint_path": "/crm/assuntos/78",
+                "payload": {
+                    "id": 78,
+                    "cliente": {"id": 20},
+                    "estagio": {"id": 30},
+                    "acoesRecentes": None,
+                    "anotacoesRecentes": None,
+                },
+                "source_updated_at": datetime(2026, 7, 7, tzinfo=timezone.utc),
+            }
+        ]
+        stats: dict[str, SyncEntityStats] = {}
+
+        with patch.object(self.service, "_fetch_rows", return_value=rows), patch.object(
+            self.service,
+            "_lookup_uuid_map",
+            side_effect=[{20: "contact-20"}, {30: "stage-30"}],
+        ), patch.object(self.service, "_upsert_row", return_value="subject-78"), patch.object(
+            self.service,
+            "_delete_children",
+        ), patch.object(self.service, "_insert_row") as insert_row:
+            self.service._sync_crm_subjects(Mock(), "tenant-1", stats, set())
+
+        self.assertEqual(stats["crm_subjects"], SyncEntityStats(processed=1, children=0))
+        insert_row.assert_not_called()
+
+
 class ExtractionServiceTests(unittest.TestCase):
     def test_catalog_has_no_non_incremental_workflows(self) -> None:
         self.assertEqual(list_non_incremental_workflows(), [])
@@ -1430,6 +1578,87 @@ class ExtractionServiceTests(unittest.TestCase):
         self.assertIn("workflow_names", launch_kwargs)
         self.assertNotIn("products_stock", launch_kwargs["workflow_names"])
         self.assertIsInstance(launch_kwargs["workflow_names"], list)
+
+    @patch("backend.olist_extraction.service.CoreSyncService")
+    @patch("backend.olist_extraction.service.WorkflowRunner")
+    def test_run_background_triggers_core_sync_only_for_successful_entities(
+        self,
+        mock_runner_class: Mock,
+        mock_core_sync_class: Mock,
+    ) -> None:
+        service = ExtractionService()
+        repository = Mock()
+        mock_runner = mock_runner_class.return_value
+        mock_runner.run_workflow.side_effect = [
+            {"status": "success"},
+            {"status": "error"},
+        ]
+        mock_core_sync_class.return_value.sync_all.return_value = {"orders": {"processed": 1, "children": 0}}
+        with TemporaryDirectory() as temp_dir:
+            service.settings = build_settings(Path(temp_dir))
+        service._get_repository = Mock(return_value=repository)
+
+        service._run_background(
+            execution_id="exec-1",
+            tenant_id="tenant-1",
+            access_token="token-ok",
+            actor_email="teste@empresa.com",
+            execution_type="incremental",
+            workflow_names=["orders", "products"],
+        )
+
+        sync_kwargs = mock_core_sync_class.return_value.sync_all.call_args.kwargs
+        self.assertEqual(sync_kwargs["tenant_id"], "tenant-1")
+        self.assertEqual(sync_kwargs["entity_names"], ["orders"])
+        self.assertTrue(sync_kwargs["refresh_marts"])
+        self.assertEqual(sync_kwargs["execution_id"], "exec-1")
+        self.assertTrue(callable(sync_kwargs["progress_callback"]))
+        repository.append_audit.assert_called_once()
+        self.assertIn("Sincronizacao semantica concluida.", repository.append_audit.call_args.args[1])
+
+    @patch("backend.olist_extraction.service.CoreSyncService")
+    @patch("backend.olist_extraction.service.WorkflowRunner")
+    def test_run_background_skips_core_sync_when_execution_is_cancelled(
+        self,
+        mock_runner_class: Mock,
+        mock_core_sync_class: Mock,
+    ) -> None:
+        service = ExtractionService()
+        repository = Mock()
+        mock_runner = mock_runner_class.return_value
+        mock_runner.run_workflow.return_value = {"status": "cancelled"}
+        with TemporaryDirectory() as temp_dir:
+            service.settings = build_settings(Path(temp_dir))
+        service._get_repository = Mock(return_value=repository)
+
+        service._run_background(
+            execution_id="exec-2",
+            tenant_id="tenant-1",
+            access_token="token-ok",
+            actor_email="teste@empresa.com",
+            execution_type="incremental",
+            workflow_names=["orders"],
+            stop_requested=Mock(return_value=False),
+        )
+
+        mock_core_sync_class.return_value.sync_all.assert_not_called()
+
+    @patch("backend.olist_extraction.service.CoreSyncService")
+    def test_run_core_sync_delegates_to_core_sync_service(self, mock_core_sync_class: Mock) -> None:
+        service = ExtractionService()
+        repository = Mock()
+        mock_core_sync_class.return_value.sync_all.return_value = {"orders": {"processed": 1, "children": 0}}
+        service.ensure_ready = Mock(return_value="tenant-1")
+        service._get_repository = Mock(return_value=repository)
+
+        result = service.run_core_sync(user_id=None, entity_names=["orders"], refresh_marts=False)
+
+        self.assertEqual(result, {"orders": {"processed": 1, "children": 0}})
+        mock_core_sync_class.return_value.sync_all.assert_called_once_with(
+            tenant_id="tenant-1",
+            entity_names=["orders"],
+            refresh_marts=False,
+        )
 
     def test_get_overview_recovers_orphan_execution_when_lock_is_free(self) -> None:
         service = ExtractionService()

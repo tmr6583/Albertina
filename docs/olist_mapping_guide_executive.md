@@ -25,8 +25,9 @@ Este guia responde três perguntas de gestão:
 ```mermaid
 flowchart LR
     A["API Olist"] --> B["RAW<br/>payload bruto"]
-    B --> C["CORE<br/>modelo relacional"]
-    C --> D["MART<br/>views e materialized views"]
+    B --> C["CORE SYNC<br/>promocao automatica"]
+    C --> D["CORE<br/>modelo relacional"]
+    D --> E["MART<br/>views e materialized views"]
 ```
 
 ## Cobertura por entidade
@@ -71,8 +72,16 @@ Legenda visual:
 | 1 | consumir endpoint Olist |
 | 2 | persistir payload em `olist_raw.api_payloads` |
 | 3 | registrar execução, log e controle global em `olist_admin.*` |
-| 4 | normalizar em `olist_core.*` com `upsert` quando aplicável |
-| 5 | atualizar `olist_mart.vw_*` e executar refresh seletivo de `mv_*` |
+| 4 | executar `core_sync` automático ao final da extração bem-sucedida |
+| 5 | normalizar em `olist_core.*` com `upsert`, reconstrução de filhas e filtro por `execution_id` no fluxo automático |
+| 6 | atualizar `olist_mart.vw_*` e executar refresh automático de `mv_*` em lote |
+
+## Situação validada
+
+- a incremental já opera de forma estável pela aplicação
+- o worker faz a promoção `RAW -> CORE -> MART` automaticamente após a coleta
+- o pós-processamento usa delta por `execution_id` para evitar backfills desnecessários no fluxo cotidiano
+- a camada `MART` já foi validada com refresh bem-sucedido e leitura real das materialized views principais
 
 ## Leitura analítica
 

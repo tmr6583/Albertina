@@ -640,7 +640,8 @@ erDiagram
 
 ## Observações
 
-- O diagrama representa principalmente o `CORE` do modelo; a camada `RAW` permanece concentrada em `olist_raw.api_payloads` e `olist_raw.webhook_events`.
+- O diagrama representa principalmente o `CORE` do modelo; a camada `RAW` permanece concentrada em `olist_raw.api_payloads` como repositório bruto principal.
 - Parte do estado operacional atual da extração é complementada em runtime por colunas e controles de execução mantidos pelo bootstrap e pela camada de carga.
 - Os relacionamentos financeiros com `orders` e `invoices` permanecem opcionais para suportar cargas parciais e sincronização assíncrona.
 - Tabelas com `raw_attributes` ou `source_payload` preservam flexibilidade para campos ainda não completamente expandidos endpoint a endpoint.
+

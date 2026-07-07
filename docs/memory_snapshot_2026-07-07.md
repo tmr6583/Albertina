@@ -11,7 +11,7 @@ Este arquivo registra, em formato documental, o snapshot das memórias e do cont
 - Projeto Albertina: integração ERP Olist -> Supabase
 - schemas relevantes: `public`, `olist_admin`, `olist_raw`, `olist_core`, `olist_mart`
 - extrações longas rodam em worker ou CLI dedicada
-- o mapeamento visual ERP x banco está centralizado em `files/Data_Map.html`
+- o mapeamento visual ERP x banco está centralizado em `docs/Data_Map.html`
 
 ### Restrições
 
@@ -25,7 +25,8 @@ Este arquivo registra, em formato documental, o snapshot das memórias e do cont
 
 - tabela de coordenação: `olist_admin.execution_control`
 - campos operacionais: `lease`, `heartbeat`, `worker_id`
-- `watermarks` e `cooldowns` são persistidos após conciliação bem-sucedida
+- o fluxo automático usa `execution_id` para promover apenas o delta atual no `core_sync`
+- o refresh da `MART` ocorre automaticamente após o `core_sync` bem-sucedido
 - identidade visual clara baseada na marca
 - interface textual em português do Brasil
 
@@ -36,6 +37,7 @@ Este arquivo registra, em formato documental, o snapshot das memórias e do cont
 - conciliações completas podem alcançar cerca de `25h`
 - incrementais costumam cair para a faixa de `30min` a `2h` após aquecimento
 - `orders` depende de validação por presença em RAW e por `last_seen_execution_id`
+- o worker permanece ocupado até concluir `core_sync` e refresh da `MART`, mesmo após `28/28` entidades
 
 ## Memória De Perfil Operacional
 
@@ -48,13 +50,14 @@ Este arquivo registra, em formato documental, o snapshot das memórias e do cont
 
 ## Memória De Sessão Recente
 
-- foi criado o artefato `files/Data_Map.html`
+- foi criado o artefato `docs/Data_Map.html`
 - o artefato recebeu refinamento visual com paleta clara alinhada à marca
 - o título principal foi reduzido para manter estética compacta
 - a área de tabela foi ampliada para melhorar a leitura operacional
 - os botões de domínio foram deixados em negrito
 - o conteúdo textual foi revisado para português do Brasil
 - a documentação do projeto foi atualizada para refletir o estado técnico atual
+- a incremental executada pela aplicação validou a cadeia automática `RAW -> CORE -> MART`
 
 ## Observação
 

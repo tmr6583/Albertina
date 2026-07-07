@@ -21,6 +21,9 @@ Comportamento esperado:
 - usa janela por faixa de datas quando a entidade trabalha com emissão, vencimento ou período operacional
 - usa `cooldown` local quando a API não oferece filtro incremental documental
 - faz `upsert` na RAW e mantém o payload mais recente visível
+- ao concluir a coleta com sucesso, dispara `core_sync` automático para promover `RAW -> CORE`
+- ao fim do `core_sync`, executa refresh automático da `MART`
+- no fluxo automático do worker, o `core_sync` usa `execution_id` para processar apenas os payloads vistos na execução atual
 - não marca ausências como exclusão definitiva
 
 ### Conciliação
@@ -59,8 +62,13 @@ Implementação atual:
 Cada execução por entidade registra, no mínimo:
 
 - `execution_type`: `incremental` ou `reconciliation`
-- `sync_mode`: `incremental`, `snapshot`, `reconciliation` ou outra estratégia técnica derivada
+- `sync_mode`: `watermark`, `date_range`, `cooldown`, `reconciliation` ou outra estratégia técnica derivada
 - `status`, tempo de início, término e duração total
+
+Observação:
+
+- `snapshot` não é considerado fallback operacional aceito para iniciar o modo `incremental`
+- se uma entidade selecionada não possuir estratégia incremental suportada, a execução incremental deve ser rejeitada antes do disparo
 
 ### `olist_admin.execution_control`
 
@@ -93,6 +101,8 @@ Objetivo:
 - `watermark`: usa a data persistida por entidade e por step aplicável
 - `date_range`: usa a janela incremental configurada
 - `cooldown`: reaproveita sincronização recente para evitar revarredura
+- não faz leitura completa como fallback implícito
+- finaliza com `core_sync` automático e refresh automático da `MART`
 
 ### Conciliação
 
@@ -117,6 +127,12 @@ O log exportado e o resumo visual devem mostrar:
 - `Início`
 - `Término`
 - `Tempo total`
+
+No fechamento da execução, a operação também deve refletir:
+
+- encerramento da fase de coleta RAW
+- promoção semântica `RAW -> CORE`
+- refresh das materialized views em `olist_mart`
 
 Formato:
 
@@ -145,3 +161,4 @@ O estado da execução deve deixar claro:
 - `Conciliação` reconcilia ausências e deleções quando a estratégia da entidade permite
 - reaparecimento limpa `is_deleted`
 - duração da execução aparece no resumo e no log exportado
+- extrações incrementais bem-sucedidas atualizam automaticamente `CORE` e `MART`

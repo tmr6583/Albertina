@@ -25,11 +25,33 @@ def main() -> int:
         required=True,
         help="Lista JSON com as entidades selecionadas para a execução.",
     )
+    sync_parser = subparsers.add_parser("sync-core", help="Promove os payloads RAW para CORE e atualiza a MART.")
+    sync_parser.add_argument("--user-id", required=False, help="ID do usuário Albertina associado ao tenant padrão.")
+    sync_parser.add_argument(
+        "--entity-names-json",
+        required=False,
+        default="[]",
+        help="Lista JSON opcional com as entidades a sincronizar. Vazio = todas.",
+    )
+    sync_parser.add_argument(
+        "--skip-marts",
+        action="store_true",
+        help="Executa apenas a promoção RAW para CORE sem refresh da MART.",
+    )
     args = parser.parse_args()
 
     try:
         if args.command in {None, "start-incremental"}:
             payload = extraction_service.start_full_sync(user_id=args.user_id, actor_email=args.actor_email)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "sync-core":
+            entity_names = json.loads(args.entity_names_json) if args.entity_names_json else []
+            payload = extraction_service.run_core_sync(
+                user_id=args.user_id,
+                entity_names=entity_names or None,
+                refresh_marts=not args.skip_marts,
+            )
             print(json.dumps(payload, ensure_ascii=False, indent=2))
             return 0
 

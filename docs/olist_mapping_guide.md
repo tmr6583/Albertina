@@ -71,8 +71,10 @@ flowchart LR
 
     subgraph RAW["olist_raw"]
         R1["api_payloads"]
-        R2["webhook_events"]
+        R2["payloads filtrados por execution_id"]
     end
+
+    S["core_sync automatico"]
 
     subgraph CORE["olist_core"]
         C1["Cadastros"]
@@ -88,13 +90,9 @@ flowchart LR
     end
 
     API --> R1
-    A2 --> R2
-    A3 --> R2
-    A4 --> R2
-    R1 --> CORE
-    R2 --> C2
-    R2 --> C3
-    R2 --> C4
+    R1 --> R2
+    R2 --> S
+    S --> CORE
     CORE --> M1
     M1 --> M2
 ```
@@ -263,9 +261,10 @@ GET /pedidos?dataAtualizacao=...
   -> identifica ids alterados
   -> GET /pedidos/{idPedido}
   -> grava RAW
+  -> executa core_sync automatico no delta da execucao
   -> upsert em orders
   -> rehidrata filhas
-  -> refresh seletivo de vw/mv analíticas
+  -> refresh automatico da MART em lote
 ```
 
 ## Produtos E Catálogo
@@ -416,14 +415,14 @@ GET /pedidos?dataAtualizacao=...
 
 | Fonte ERP | Tabela Destino | Status | Estratégia |
 |---|---|---|---|
-| `GET /formas-envio` | `olist_core.shipping_methods` | Confirmado | carga full de baixa frequência |
+| `GET /formas-envio` | `olist_core.shipping_methods` | Confirmado | `cooldown` |
 | `GET /formas-frete` `[A CONFIRMAR]` | `olist_core.freight_methods` | Módulo confirmado | validar path final |
-| `GET /depósitos` `[A CONFIRMAR]` | `olist_core.deposits` | Módulo confirmado | carga full |
-| `GET /estoque/*` | `olist_core.stock_balances`, `olist_core.stock_movements` | Módulo confirmado | webhook + janela corretiva |
-| `Listar agrupamentos de expedição` | `olist_core.shipment_groups` | Confirmado | full + janela |
+| `GET /depósitos` `[A CONFIRMAR]` | `olist_core.deposits` | Módulo confirmado | `cooldown` |
+| `GET /estoque/*` | `olist_core.stock_balances`, `olist_core.stock_movements` | Módulo confirmado | `cooldown` e detalhamento por produto |
+| `Listar agrupamentos de expedição` | `olist_core.shipment_groups` | Confirmado | `date_range` |
 | `GET /expedicao/*` `[A CONFIRMAR]` | `olist_core.shipments` | Módulo confirmado | detalhamento por grupo |
 | `GET /separacao/{idSeparacao}` | `olist_core.separations`, `olist_core.separation_items` | Confirmado | rehidratação por separação |
-| estoque analítico | `olist_mart.vw_fact_inventory`, `olist_mart.mv_fact_inventory` | Confirmado | refresh após carga |
+| estoque analítico | `olist_mart.vw_fact_inventory`, `olist_mart.mv_fact_inventory` | Confirmado | refresh automático após `core_sync` |
 
 ## Estoque
 
@@ -749,28 +748,29 @@ Linha destino principal:
 
 | Classe | Estratégia | Aplicação |
 |---|---|---|
-| Cadastro estável | `full` de baixa frequência | categorias, marcas, tipos, depósitos, meios |
-| Cadastro com alteração publicada | `incremental por dataAtualizacao` | contatos |
-| Transacional | `incremental por dataAtualizacao` | pedidos |
+| Cadastro estável | `cooldown` | categorias, marcas, tipos, depósitos, meios |
+| Cadastro com alteração publicada | `watermark` | contatos, produtos, CRM |
+| Transacional | `watermark` | pedidos |
 | Detalhe dependente do cabeçalho | `rehydration por id` | itens, parcelas, shipping, marcadores |
-| Financeiro | `full + janela deslizante` | contas a pagar e a receber até fechar watermark por endpoint |
-| Logística | `webhook + polling corretivo` | estoque, notas autorizadas, pedidos enviados |
-| Analytics | `refresh de view/materialized view` | `olist_mart.vw_*` e `olist_mart.mv_*` |
+| Financeiro | `date_range` | contas a pagar e a receber por emissão |
+| Logística | `date_range` e `cooldown` | expedição, separação, estoque e referências auxiliares |
+| Fiscal | `date_range` | notas fiscais por faixa operacional |
+| Analytics | `core_sync` automático + refresh MART | `olist_mart.vw_*` e `olist_mart.mv_*` |
 
 ## Estratégia De Refresh Analítico
 
 | Camada | Objeto | Modo |
 |---|---|---|
 | View lógica | `olist_mart.vw_*` | atualização automática na leitura |
-| Materialized view | `olist_mart.mv_*` | refresh manual ou agendado |
-| Refresh em lote | `select olist_admin.refresh_olist_mart_views(false);` | pós-carga |
+| Materialized view | `olist_mart.mv_*` | refresh automático no fechamento do `core_sync` |
+| Refresh em lote | `select olist_admin.refresh_olist_mart_views(false);` | padrão operacional pós-`core_sync` |
 | Refresh unitário | `select olist_admin.refresh_olist_mart_view('mv_fact_orders', false);` | ajuste localizado |
 | Refresh concorrente | `REFRESH MATERIALIZED VIEW CONCURRENTLY ...` | apenas fora de transação |
 | Auditoria | `olist_admin.mart_refresh_log` | rastreabilidade |
 
 ## Regra De Ouro
 
-> Padrão recomendado: usar `GET/listagem incremental` para descobrir alterações, `GET/detalhe por id` para consolidar a linha de negócio, persistir o payload bruto em `RAW`, executar `upsert` idempotente no `CORE` e então atualizar o `MART` de forma seletiva.
+> Padrão recomendado: usar `GET/listagem incremental` para descobrir alterações, `GET/detalhe por id` para consolidar a linha de negócio, persistir o payload bruto em `RAW`, executar `core_sync` automático filtrado por `execution_id`, aplicar `upsert` idempotente no `CORE` e então atualizar o `MART` automaticamente em lote.
 
 ## Arquivos Relacionados
 

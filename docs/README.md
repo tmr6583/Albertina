@@ -28,9 +28,9 @@ Objetivo:
 
 - [olist_extraction_data_flow.html](file:///c:/GitHubLocal/Albertina/docs/olist_extraction_data_flow.html): fluxo visual da extração Olist
 
-### Artefatos externos referenciados
+### Artefatos visuais complementares
 
-- [Data_Map.html](file:///c:/GitHubLocal/Albertina/files/Data_Map.html): mapa visual ERP Olist x banco mantido em `files/` por decisão prévia do projeto
+- [Data_Map.html](file:///c:/GitHubLocal/Albertina/docs/Data_Map.html): mapa visual ERP Olist x banco consolidado neste diretório
 
 ## Regras De Organização
 
@@ -47,3 +47,11 @@ Este diretório passa a ser a referência principal para:
 - guias operacionais
 - especificações funcionais
 - documentos visuais de apoio
+
+## Estado Documentado Em 07/07/2026
+
+- a extração incremental está operacional e validada ponta a ponta
+- o worker executa `core_sync` automático ao final da extração bem-sucedida
+- o sincronismo `RAW -> CORE` usa filtro por `execution_id` no fluxo automático para processar apenas o delta da execução
+- a camada `MART` é atualizada automaticamente após o `core_sync` com refresh em lote das materialized views
+- a documentação visual e textual deste diretório reflete o estado real validado em execução recente pela aplicação

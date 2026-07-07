@@ -8,7 +8,7 @@ Este documento consolida a memória operacional, o conhecimento técnico recorre
 - camadas principais: `public`, `olist_admin`, `olist_raw`, `olist_core`, `olist_mart`
 - arquitetura da aplicação: frontend em `React + Vite` e backend em `FastAPI`
 - extrações longas rodam em worker ou CLI dedicada para evitar interrupções por reciclagem do servidor web
-- o artefato visual de mapeamento ERP x banco está em [Data_Map.html](file:///c:/GitHubLocal/Albertina/files/Data_Map.html)
+- o artefato visual de mapeamento ERP x banco está em [Data_Map.html](file:///c:/GitHubLocal/Albertina/docs/Data_Map.html)
 
 ## Estado Atual Da Aplicação
 
@@ -32,10 +32,11 @@ Este documento consolida a memória operacional, o conhecimento técnico recorre
 ## Convenções De Engenharia
 
 - `execution_control` usa `lease`, `heartbeat` e `worker_id`
-- `watermarks` e `cooldowns` são persistidos após conciliação bem-sucedida para aquecer incrementais
+- o fluxo automático usa `execution_id` para promover apenas o delta da execução corrente no `core_sync`
 - o modelo bruto fica em `olist_raw.api_payloads`
 - a normalização relacional fica em `olist_core.*`
 - a leitura analítica fica em `olist_mart.vw_*` e `olist_mart.mv_*`
+- o refresh da `MART` ocorre automaticamente ao final do `core_sync` bem-sucedido
 - interfaces devem usar paleta clara baseada na marca, com azul, amarelo e ciano
 - toda comunicação visual e textual do produto deve permanecer em português do Brasil
 
@@ -46,6 +47,7 @@ Este documento consolida a memória operacional, o conhecimento técnico recorre
 - `incremental`: prioriza menor volume com `watermark`, janelas ou `cooldown` quando aplicável
 - `reconciliation`: executa leitura ampla, reconcilia ausências e aquece `watermarks` e `cooldowns`
 - os dois modos compartilham o mesmo slot global de execução
+- a incremental validada pela aplicação já executa `RAW -> CORE -> MART` automaticamente
 
 ### Controle E Persistência
 
@@ -62,8 +64,8 @@ Este documento consolida a memória operacional, o conhecimento técnico recorre
 3. a tela `Extração` dispara a sincronização via API
 4. o backend coordena a execução e atualiza logs, status e heartbeat
 5. a API Olist é consumida com paginação, retry e persistência RAW
-6. o destino modelado é `olist_core.*`
-7. a leitura analítica é feita em `olist_mart.*`
+6. o `core_sync` promove o delta da execução para `olist_core.*`
+7. o fechamento atualiza `olist_mart.*` com refresh automático das materialized views
 
 ## Lições Aprendidas
 
@@ -72,6 +74,7 @@ Este documento consolida a memória operacional, o conhecimento técnico recorre
 - uma conciliação completa pode chegar a aproximadamente `25h`
 - incrementais tendem a estabilizar entre `30min` e `2h` após aquecimento
 - `orders` exige validação por presença no RAW e por `last_seen_execution_id` devido a limitações de filtro na API
+- o worker só libera o slot global depois de concluir `core_sync` e o refresh da `MART`
 
 ## Preferências Operacionais Consolidadas
 
@@ -86,10 +89,11 @@ As preferências abaixo impactam arquitetura de tela, instrumentação e documen
 
 ## Decisões Recentes
 
-- o mapeamento visual ERP Olist x banco foi consolidado em [Data_Map.html](file:///c:/GitHubLocal/Albertina/files/Data_Map.html)
+- o mapeamento visual ERP Olist x banco foi consolidado em [Data_Map.html](file:///c:/GitHubLocal/Albertina/docs/Data_Map.html)
 - a documentação técnica foi revisada para refletir o catálogo real de endpoints, entidades e tabelas
 - nomes antigos e incorretos foram removidos da documentação, incluindo rotas e `entity_name` desatualizados
 - os registros `debug-*` foram reposicionados como histórico documental, não como incidentes abertos
+- a incremental executada pela aplicação validou `core_sync` automático, delta por `execution_id` e refresh da `MART`
 
 ## Inventário Documental
 

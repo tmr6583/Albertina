@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from .catalog import WORKFLOWS, WORKFLOW_BY_ENTITY, Workflow, list_non_incremental_workflows
 from .config import BACKEND_DIR, build_settings
+from .core_sync import CoreSyncService
 from .extract import WorkflowRunner
 from .load import ExtractionRepository, utc_now
 from .transform import parse_olist_datetime
@@ -305,6 +306,11 @@ class ExtractionService:
         success_total = 0
         error_total = 0
         stopped = False
+        successful_entities: list[str] = []
+        failed_entities: list[str] = []
+        core_sync_status = "skipped"
+        core_sync_error: str | None = None
+        core_sync_result: dict[str, Any] = {}
         started_at = datetime.now()
         selected_workflows = [
             WORKFLOW_BY_ENTITY[workflow_name] for workflow_name in workflow_names
@@ -335,23 +341,81 @@ class ExtractionService:
                 )
                 if result["status"] == "success":
                     success_total += 1
+                    successful_entities.append(workflow.entity_name)
                 elif result["status"] == "cancelled":
                     stopped = True
                     break
                 else:
                     error_total += 1
+                    failed_entities.append(workflow.entity_name)
+            if successful_entities and not stopped:
+                if stop_requested is not None and stop_requested():
+                    stopped = True
+                else:
+                    core_sync_status = "running"
+                    if heartbeat_callback is not None:
+                        heartbeat_callback(
+                            {
+                                "entityName": ",".join(successful_entities),
+                                "currentStep": "core_sync",
+                                "currentEndpointPath": "olist_core.sync_all",
+                                "sourceContextsProcessed": len(successful_entities),
+                                "sourceContextsTotal": len(selected_workflows),
+                                "heartbeatAt": utc_now().isoformat(),
+                            }
+                        )
+                    try:
+                        def on_core_sync_progress(step_name: str) -> None:
+                            if heartbeat_callback is None:
+                                return
+                            heartbeat_callback(
+                                {
+                                    "entityName": ",".join(successful_entities),
+                                    "currentStep": f"core_sync:{step_name}",
+                                    "currentEndpointPath": f"olist_core.{step_name}",
+                                    "sourceContextsProcessed": len(successful_entities),
+                                    "sourceContextsTotal": len(selected_workflows),
+                                    "heartbeatAt": utc_now().isoformat(),
+                                }
+                            )
+
+                        core_sync_result = CoreSyncService(repository).sync_all(
+                            tenant_id=tenant_id,
+                            entity_names=successful_entities,
+                            refresh_marts=True,
+                            execution_id=execution_id,
+                            progress_callback=on_core_sync_progress,
+                        )
+                        core_sync_status = "success"
+                    except Exception as exc:
+                        core_sync_status = "error"
+                        core_sync_error = str(exc)
+                        error_total += 1
             duration_seconds = max((datetime.now() - started_at).total_seconds(), 0.0)
             tone = "warning" if stopped else ("success" if error_total == 0 else "danger")
             title = "Extração interrompida" if stopped else "Extração concluída"
+            core_sync_detail = (
+                "Sincronizacao semantica nao executada."
+                if core_sync_status == "skipped"
+                else (
+                    "Sincronizacao semantica concluida."
+                    if core_sync_status == "success"
+                    else (
+                        "Sincronizacao semantica interrompida."
+                        if stopped
+                        else f"Sincronizacao semantica falhou: {core_sync_error}."
+                    )
+                )
+            )
             detail = (
                 f"A execução {execution_type} solicitada por {actor_email} foi interrompida com "
                 f"{success_total} entidades bem-sucedidas, {error_total} com erro "
-                f"em {duration_seconds:.2f}s."
+                f"em {duration_seconds:.2f}s. {core_sync_detail}"
                 if stopped
                 else (
                     f"A execução {execution_type} solicitada por {actor_email} terminou com "
                     f"{success_total} entidades bem-sucedidas, {error_total} com erro "
-                    f"em {duration_seconds:.2f}s."
+                    f"em {duration_seconds:.2f}s. {core_sync_detail}"
                 )
             )
             repository.append_audit(
@@ -371,6 +435,11 @@ class ExtractionService:
                     "successTotal": success_total,
                     "errorTotal": error_total,
                     "stopped": stopped,
+                    "successfulEntities": successful_entities,
+                    "failedEntities": failed_entities,
+                    "coreSyncStatus": core_sync_status,
+                    "coreSyncResult": core_sync_result,
+                    "coreSyncError": core_sync_error,
                     "workflowNames": workflow_names or [],
                 },
             )
@@ -574,6 +643,21 @@ class ExtractionService:
         if not requested:
             raise RuntimeError("Nenhuma entidade elegível foi selecionada para esta execução.")
         return requested
+
+    def run_core_sync(
+        self,
+        *,
+        user_id: str | None = None,
+        entity_names: list[str] | None = None,
+        refresh_marts: bool = True,
+    ) -> dict[str, Any]:
+        repository = self._get_repository()
+        tenant_id = self.ensure_ready(user_id)
+        return CoreSyncService(repository).sync_all(
+            tenant_id=tenant_id,
+            entity_names=entity_names,
+            refresh_marts=refresh_marts,
+        )
 
     def _should_skip_products_stock_by_policy(
         self,
