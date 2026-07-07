@@ -8,6 +8,7 @@ const ROUTES = {
   users: '/usuarios',
   connections: '/conexoes',
   extraction: '/extracao',
+  ai: '/consulta-ia',
 }
 
 const LEGACY_ROUTES = {
@@ -17,6 +18,12 @@ const LEGACY_ROUTES = {
 }
 
 const NAV_ITEMS = [
+  {
+    key: 'ai',
+    label: 'Consulta IA',
+    path: ROUTES.ai,
+    className: 'nav-ai',
+  },
   {
     key: 'users',
     label: 'Administração de Usuários',
@@ -51,6 +58,10 @@ function getPageFromPath(pathname) {
     return 'extraction'
   }
 
+  if (pathname === ROUTES.ai) {
+    return 'ai'
+  }
+
   if (pathname === ROUTES.users) {
     return 'users'
   }
@@ -83,6 +94,19 @@ function formatDateTime(value) {
   const seconds = String(date.getSeconds()).padStart(2, '0')
 
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
+}
+
+function formatNumber(value) {
+  const normalizedValue = Number(value) || 0
+  return new Intl.NumberFormat('pt-BR').format(normalizedValue)
+}
+
+function formatCurrency(value) {
+  const normalizedValue = Number(value) || 0
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(normalizedValue)
 }
 
 
@@ -1483,6 +1507,395 @@ function ExtractionPage({
 }
 
 
+function AiPage({
+  overview,
+  metrics,
+  glossary,
+  templates,
+  queryForm,
+  setQueryForm,
+  queryResult,
+  queryHistory,
+  isSubmitting,
+  isCatalogLoading,
+  onRefreshOverview,
+  onSubmitQuery,
+  onApplySuggestion,
+}) {
+  const quickQuestions = [
+    'Qual foi o faturamento nos últimos 30 dias?',
+    'Quais itens estão com estoque baixo?',
+    'Quais títulos a receber estão vencidos?',
+    'Quais contas a pagar estão vencidas?',
+    'O que significa faturamento?',
+    'Como calcula o ticket médio faturado?',
+  ]
+
+  const metricCards = [
+    {
+      label: 'MÉTRICAS',
+      value: formatNumber(overview?.counts?.metrics),
+      helper: 'Catálogo semântico ativo',
+    },
+    {
+      label: 'GLOSSÁRIO',
+      value: formatNumber(overview?.counts?.glossary),
+      helper: 'Termos de negócio indexados',
+    },
+    {
+      label: 'TEMPLATES',
+      value: formatNumber(overview?.counts?.templates),
+      helper: 'Consultas prontas auditáveis',
+    },
+    {
+      label: 'PGVECTOR',
+      value: overview?.pgvectorEnabled ? 'ATIVO' : 'PENDENTE',
+      helper: overview?.pgvectorEnabled ? 'Camada vetorial habilitada' : 'Aguardando carga documental',
+    },
+  ]
+
+  const resultColumns = queryResult?.resultTable?.length ? Object.keys(queryResult.resultTable[0]) : []
+  const selectedTenant = (overview?.tenants ?? []).find((tenant) => tenant.tenantId === queryForm.tenantId) ?? overview?.tenants?.[0]
+  const headlineMetrics = [
+    {
+      label: 'Tenant',
+      value: selectedTenant?.tenantName ?? 'Sem contexto',
+    },
+    {
+      label: 'Catálogo',
+      value: `${formatNumber(overview?.counts?.metrics)} métricas`,
+    },
+    {
+      label: 'RAG',
+      value: overview?.pgvectorEnabled ? 'Pronto' : 'Parcial',
+    },
+  ]
+
+  return (
+    <section className="page-stack ai-page">
+      <section className="panel panel-glow ai-hero-panel">
+        <div className="ai-hero-shell">
+          <div className="ai-hero-copy">
+            <span className="eyebrow">Consulta IA</span>
+            <h2>Workspace semântico do ERP</h2>
+            <p className="hero-text">
+              Pergunte em linguagem natural, receba resposta auditável e navegue pelo contexto sem perder a fonte dos dados.
+            </p>
+          </div>
+          <div className="ai-hero-strip">
+            {headlineMetrics.map((item) => (
+              <div key={item.label} className="ai-hero-pill">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+          <div className="toolbar ai-hero-actions">
+            <button type="button" className="ghost-button" onClick={onRefreshOverview} disabled={isSubmitting || isCatalogLoading}>
+              Atualizar catálogo
+            </button>
+            <button type="button" className="ghost-button success" onClick={() => onApplySuggestion('Qual foi o faturamento nos últimos 30 dias?')} disabled={isSubmitting}>
+              Rodar exemplo
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="page-grid ai-grid">
+        <article className="panel ai-query-panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Pergunta</span>
+              <p className="panel-caption">Componha a consulta, escolha a tool se quiser travar o fluxo e execute com contexto de tenant.</p>
+            </div>
+          </div>
+
+          <form
+            className="form-grid ai-query-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              onSubmitQuery()
+            }}
+          >
+            <label className="input-shell ai-query-input-shell">
+              <span>Pergunta em linguagem natural</span>
+              <textarea
+                value={queryForm.question}
+                onChange={(event) =>
+                  setQueryForm((current) => ({
+                    ...current,
+                    question: event.target.value,
+                  }))
+                }
+                placeholder="Ex.: Quais títulos a receber estão vencidos?"
+                rows={4}
+              />
+            </label>
+
+            <div className="ai-query-controls">
+              <label className="input-shell compact">
+                <span>Tool opcional</span>
+                <select
+                  value={queryForm.toolName}
+                  onChange={(event) =>
+                    setQueryForm((current) => ({
+                      ...current,
+                      toolName: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Inferir automaticamente</option>
+                  <option value="consultar_resumo_vendas">consultar_resumo_vendas</option>
+                  <option value="consultar_estoque_baixo">consultar_estoque_baixo</option>
+                  <option value="consultar_receber_vencidos">consultar_receber_vencidos</option>
+                  <option value="consultar_pagar_vencidos">consultar_pagar_vencidos</option>
+                  <option value="buscar_glossario">buscar_glossario</option>
+                  <option value="explicar_metrica">explicar_metrica</option>
+                </select>
+              </label>
+
+              <label className="input-shell compact">
+                <span>Tenant</span>
+                <select
+                  value={queryForm.tenantId}
+                  onChange={(event) =>
+                    setQueryForm((current) => ({
+                      ...current,
+                      tenantId: event.target.value,
+                    }))
+                  }
+                >
+                  {(overview?.tenants ?? []).map((tenant) => (
+                    <option key={tenant.tenantId} value={tenant.tenantId}>
+                      {tenant.tenantName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="ai-query-actions">
+                <button type="submit" className="primary-button ai-action-button" disabled={isSubmitting || !queryForm.question.trim()}>
+                  {isSubmitting ? 'Consultando...' : 'Consultar IA'}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button ai-action-button"
+                  disabled={isSubmitting}
+                  onClick={() =>
+                    setQueryForm((current) => ({
+                      ...current,
+                      question: '',
+                      toolName: '',
+                    }))
+                  }
+                >
+                  Limpar
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <div className="ai-suggestions">
+            {quickQuestions.map((question) => (
+              <button
+                key={question}
+                type="button"
+                className="ghost-button ai-suggestion-chip"
+                onClick={() => onApplySuggestion(question)}
+                disabled={isSubmitting}
+              >
+                {question}
+              </button>
+            ))}
+          </div>
+
+          <div className="ai-metric-ribbon">
+            {metricCards.map((card) => (
+              <div key={card.label} className="ai-metric-mini-card">
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <small>{card.helper}</small>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel ai-result-panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Resposta</span>
+              <p className="panel-caption">Resumo executivo, evidências e trilha de auditoria da execução atual.</p>
+            </div>
+          </div>
+
+          {queryResult ? (
+            <div className="ai-result-shell">
+              <div className="key-value-list compact-list ai-summary-grid">
+                <div className="key-value-row">
+                  <span>Tool</span>
+                  <strong>{queryResult.toolName}</strong>
+                </div>
+                <div className="key-value-row">
+                  <span>Domínio</span>
+                  <strong>{queryResult.domain}</strong>
+                </div>
+                <div className="key-value-row">
+                  <span>Fonte</span>
+                  <strong>{`${queryResult.source?.schema}.${queryResult.source?.object}`}</strong>
+                </div>
+                <div className="key-value-row">
+                  <span>Linhas</span>
+                  <strong>{formatNumber(queryResult.resultTable?.length ?? 0)}</strong>
+                </div>
+              </div>
+
+              <div className="key-value-row ai-answer-row">
+                <span>Resumo</span>
+                <strong>{queryResult.summaryText}</strong>
+              </div>
+
+              <div className="key-value-list compact-list ai-metrics-grid">
+                {Object.entries(queryResult.summaryMetrics ?? {}).map(([key, value]) => (
+                  <div className="key-value-row" key={key}>
+                    <span>{key}</span>
+                    <strong>{typeof value === 'number' ? formatNumber(value) : String(value)}</strong>
+                  </div>
+                ))}
+              </div>
+
+              <div className="table-shell ai-table-shell">
+                <div className="ai-table-meta">
+                  <span>Filtros aplicados: {JSON.stringify(queryResult.appliedFilters ?? {})}</span>
+                  <span>Audit ID: {queryResult.audit?.auditId ?? 'Não informado'}</span>
+                </div>
+                {queryResult.resultTable?.length ? (
+                  <div className="ai-data-table-scroll">
+                    <table className="ai-data-table">
+                      <thead>
+                        <tr>
+                          {resultColumns.map((column) => (
+                            <th key={column}>{column}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {queryResult.resultTable.map((row, index) => (
+                          <tr key={`${queryResult.audit?.auditId ?? 'row'}-${index}`}>
+                            {resultColumns.map((column) => (
+                              <td key={column}>
+                                {typeof row[column] === 'number'
+                                  ? formatNumber(row[column])
+                                  : String(row[column] ?? '')}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    <strong>Nenhuma linha retornada</strong>
+                    <p>A consulta foi concluída, mas não encontrou resultados para os filtros aplicados.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <strong>Nenhuma consulta executada</strong>
+              <p>Digite uma pergunta e use a camada semântica para consultar vendas, estoque ou financeiro.</p>
+            </div>
+          )}
+        </article>
+
+        <article className="panel ai-catalog-panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Catálogo</span>
+              <p className="panel-caption">Base semântica consolidada para métricas, termos e templates disponíveis.</p>
+            </div>
+          </div>
+          <div className="ai-catalog-columns">
+            <section className="ai-catalog-section">
+              <strong>Métricas</strong>
+              <ul className="activity-list audit-list">
+                {(metrics ?? []).slice(0, 8).map((item) => (
+                  <li key={item.metricCode} className="activity-item tone-neutral">
+                    <div>
+                      <strong>{item.metricName}</strong>
+                      <p>{item.definition}</p>
+                    </div>
+                    <span>{item.domain}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="ai-catalog-section">
+              <strong>Glossário</strong>
+              <ul className="activity-list audit-list">
+                {(glossary ?? []).slice(0, 8).map((item) => (
+                  <li key={item.normalizedTerm} className="activity-item tone-neutral">
+                    <div>
+                      <strong>{item.term}</strong>
+                      <p>{item.definition}</p>
+                    </div>
+                    <span>{item.domain}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="ai-catalog-section">
+              <strong>Templates</strong>
+              <ul className="activity-list audit-list">
+                {(templates ?? []).slice(0, 8).map((item) => (
+                  <li key={item.toolName} className="activity-item tone-neutral">
+                    <div>
+                      <strong>{item.toolName}</strong>
+                      <p>{item.description}</p>
+                    </div>
+                    <span>{item.domain}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </article>
+
+        <article className="panel ai-history-panel">
+          <div className="panel-header compact">
+            <div>
+              <span className="eyebrow">Últimas consultas</span>
+              <p className="panel-caption">Histórico curto da sessão para retomada rápida do contexto.</p>
+            </div>
+          </div>
+          {queryHistory.length > 0 ? (
+            <ul className="activity-list audit-list">
+              {queryHistory.map((item) => (
+                <li key={item.auditId} className="activity-item tone-accent">
+                  <div>
+                    <strong>{item.question}</strong>
+                    <p>{item.summaryText}</p>
+                  </div>
+                  <span>{item.toolName}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="empty-state">
+              <strong>Nenhuma consulta recente</strong>
+              <p>As últimas execuções bem-sucedidas ficarão registradas aqui durante a sessão.</p>
+            </div>
+          )}
+        </article>
+      </section>
+    </section>
+  )
+}
+
+
 function OlistCallbackPage({ phase, message }) {
   const title = phase === 'error' ? 'Falha na conexão Olist' : 'Concluindo conexão Olist'
   const detail =
@@ -1523,6 +1936,18 @@ function App() {
   const [activity, setActivity] = useState([])
   const [connectionsOverview, setConnectionsOverview] = useState(null)
   const [extractionOverview, setExtractionOverview] = useState(null)
+  const [aiOverview, setAiOverview] = useState(null)
+  const [aiMetrics, setAiMetrics] = useState([])
+  const [aiGlossary, setAiGlossary] = useState([])
+  const [aiTemplates, setAiTemplates] = useState([])
+  const [aiQueryResult, setAiQueryResult] = useState(null)
+  const [aiQueryHistory, setAiQueryHistory] = useState([])
+  const [isAiCatalogLoading, setIsAiCatalogLoading] = useState(false)
+  const [aiQueryForm, setAiQueryForm] = useState({
+    tenantId: '',
+    toolName: '',
+    question: '',
+  })
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -1582,6 +2007,26 @@ function App() {
     )
     setConnectionsOverview(overviewData)
     setExtractionOverview(extractionData)
+
+    try {
+      const aiOverviewData = await apiRequest('/ai/overview')
+      setAiOverview(aiOverviewData)
+      setAiQueryForm((current) => ({
+        ...current,
+        tenantId: current.tenantId || aiOverviewData?.tenantId || '',
+      }))
+    } catch {
+      setAiOverview(null)
+      setAiMetrics([])
+      setAiGlossary([])
+      setAiTemplates([])
+      setAiQueryResult(null)
+      setAiQueryForm((current) => ({
+        ...current,
+        tenantId: '',
+      }))
+    }
+
     clearPageFeedback()
   }, [])
 
@@ -1638,6 +2083,12 @@ function App() {
         setActivity([])
         setConnectionsOverview(null)
         setExtractionOverview(null)
+        setAiOverview(null)
+        setAiMetrics([])
+        setAiGlossary([])
+        setAiTemplates([])
+        setAiQueryResult(null)
+        setAiQueryHistory([])
         clearPageFeedback()
         navigate(ROUTES.login, true)
       } finally {
@@ -1898,6 +2349,12 @@ function App() {
       setActivity([])
       setConnectionsOverview(null)
       setExtractionOverview(null)
+      setAiOverview(null)
+      setAiMetrics([])
+      setAiGlossary([])
+      setAiTemplates([])
+      setAiQueryResult(null)
+      setAiQueryHistory([])
       clearPageFeedback()
       navigate(ROUTES.login, true)
     }
@@ -2003,6 +2460,89 @@ function App() {
     }
   }
 
+  async function handleRefreshAiCatalog() {
+    setIsSubmitting(true)
+    setIsAiCatalogLoading(true)
+    try {
+      const [overviewData, metricsData, glossaryData, templatesData] = await Promise.all([
+        apiRequest('/ai/overview'),
+        apiRequest('/ai/metrics'),
+        apiRequest('/ai/glossary'),
+        apiRequest('/ai/templates'),
+      ])
+      setAiOverview(overviewData)
+      setAiMetrics(metricsData)
+      setAiGlossary(glossaryData)
+      setAiTemplates(templatesData)
+      setAiQueryForm((current) => ({
+        ...current,
+        tenantId: current.tenantId || overviewData?.tenantId || '',
+      }))
+      showPageFeedback('Catálogo da IA atualizado com sucesso.', 'success')
+    } catch (error) {
+      showPageFeedback(
+        error instanceof ApiError ? error.message : 'Não foi possível atualizar o catálogo da IA.',
+        'danger',
+      )
+    } finally {
+      setIsAiCatalogLoading(false)
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleSubmitAiQuery(customQuestion = null) {
+    const question = (customQuestion ?? aiQueryForm.question).trim()
+    if (!question) {
+      showPageFeedback('Informe uma pergunta para consultar a IA.', 'danger')
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const response = await apiRequest('/ai/query', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenantId: aiQueryForm.tenantId || undefined,
+          toolName: aiQueryForm.toolName || undefined,
+          question,
+          filters: {},
+          options: {},
+        }),
+      })
+      setAiQueryResult(response)
+      setAiQueryForm((current) => ({
+        ...current,
+        question,
+      }))
+      setAiQueryHistory((current) => [
+        {
+          auditId: response.audit?.auditId ?? crypto.randomUUID(),
+          question,
+          toolName: response.toolName,
+          summaryText: response.summaryText,
+        },
+        ...current,
+      ].slice(0, 8))
+      showPageFeedback('Consulta IA executada com sucesso.', 'success')
+    } catch (error) {
+      showPageFeedback(
+        error instanceof ApiError ? error.message : 'Não foi possível executar a consulta IA.',
+        'danger',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  function handleApplyAiSuggestion(question) {
+    setAiQueryForm((current) => ({
+      ...current,
+      question,
+      toolName: current.toolName,
+    }))
+    handleSubmitAiQuery(question)
+  }
+
   useEffect(() => {
     if (!isAuthenticated || activePage !== 'extraction') {
       return
@@ -2029,6 +2569,18 @@ function App() {
     extractionOverview?.stopRequested,
     isAuthenticated,
   ])
+
+  useEffect(() => {
+    if (!isAuthenticated || activePage !== 'ai') {
+      return
+    }
+
+    if (aiMetrics.length > 0 || isAiCatalogLoading) {
+      return
+    }
+
+    handleRefreshAiCatalog()
+  }, [activePage, aiMetrics.length, isAiCatalogLoading, isAuthenticated])
 
   async function handleRefreshExtraction() {
     setIsSubmitting(true)
@@ -2164,6 +2716,26 @@ function App() {
           onStartReconciliation={() => handleStartExtraction('reconciliation')}
           onStopExtraction={handleStopExtraction}
           onRefreshExecution={handleRefreshExtraction}
+        />
+      )
+    }
+
+    if (activePage === 'ai') {
+      return (
+        <AiPage
+          overview={aiOverview}
+          metrics={aiMetrics}
+          glossary={aiGlossary}
+          templates={aiTemplates}
+          queryForm={aiQueryForm}
+          setQueryForm={setAiQueryForm}
+          queryResult={aiQueryResult}
+          queryHistory={aiQueryHistory}
+          isSubmitting={isSubmitting}
+          isCatalogLoading={isAiCatalogLoading}
+          onRefreshOverview={handleRefreshAiCatalog}
+          onSubmitQuery={handleSubmitAiQuery}
+          onApplySuggestion={handleApplyAiSuggestion}
         />
       )
     }

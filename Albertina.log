@@ -575,3 +575,15 @@
 [07/07/2026 13:58:50] Gerando build do frontend para runtime estavel.
 [07/07/2026 13:58:52] Build do frontend concluido.
 [07/07/2026 13:58:54] Frontend iniciado com PID 21304.
+[07/07/2026 16:21:11] Script iniciado. Acao=
+[07/07/2026 16:21:12] Backend: PID file obsoleto removido.
+[07/07/2026 16:21:15] Encerramento solicitado.
+[07/07/2026 16:21:18] Frontend: PID 21304  encerrado.
+[07/07/2026 16:21:20] Frontend porta 3500: PID 21304 encerrado.
+[07/07/2026 16:21:21] Frontend encerrado.
+[07/07/2026 16:21:21] Backend ja estava parado.
+[07/07/2026 16:22:10] Script iniciado. Acao=
+[07/07/2026 16:22:13] Inicio solicitado.
+[07/07/2026 16:22:20] Frontend ja estava parado.
+[07/07/2026 16:22:21] Backend ja estava parado.
+[07/07/2026 16:22:21] Iniciando backend.

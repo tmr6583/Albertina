@@ -51,6 +51,8 @@ export async function apiRequest(path, options = {}) {
     const message =
       typeof data?.detail === 'string'
         ? data.detail
+        : typeof data?.detail?.message === 'string'
+          ? data.detail.message
         : 'Não foi possível concluir a operação.'
     throw new ApiError(message, response.status)
   }

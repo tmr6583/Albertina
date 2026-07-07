@@ -16,7 +16,7 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -735,6 +735,774 @@ def fetchall(db: Any, query: str, params: Iterable[Any] = ()) -> list[RowData]:
         cursor.close()
 
 
+def set_db_app_user_context(db: Any, user_id: str) -> None:
+    if DB_ENGINE != "postgresql":
+        return
+    execute(db, "SELECT set_config('app.current_user_id', ?, true)", (user_id,))
+
+
+def ensure_ai_layer_available(db: Any) -> None:
+    if DB_ENGINE != "postgresql":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A camada de IA requer PostgreSQL/Supabase ativo.",
+        )
+    row = fetchone(db, "SELECT to_regnamespace('olist_ai') AS schema_name")
+    if row is None or row_value(row, "schema_name") is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="A camada semântica da IA ainda não foi migrada no banco.",
+        )
+
+
+def parse_json_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    if value is None:
+        return []
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+        return parsed if isinstance(parsed, list) else []
+    return []
+
+
+def fetch_user_tenants(db: Any, user_id: str) -> list[RowData]:
+    return fetchall(
+        db,
+        """
+        SELECT
+          t.tenant_id,
+          t.tenant_code,
+          t.tenant_name,
+          t.status,
+          ut.role
+        FROM olist_admin.user_tenants ut
+        JOIN olist_admin.tenants t
+          ON t.tenant_id = ut.tenant_id
+        WHERE ut.user_id = ?
+        ORDER BY
+          CASE ut.role
+            WHEN 'owner' THEN 1
+            WHEN 'admin' THEN 2
+            WHEN 'operator' THEN 3
+            ELSE 4
+          END,
+          t.tenant_name ASC
+        """,
+        (user_id,),
+    )
+
+
+def resolve_ai_tenant_scope(db: Any, user_id: str, requested_tenant_id: str | None) -> tuple[str, list[RowData]]:
+    ensure_ai_layer_available(db)
+    set_db_app_user_context(db, user_id)
+    tenants = fetch_user_tenants(db, user_id)
+    if not tenants:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="O usuário autenticado não possui tenant vinculado para consulta da IA.",
+        )
+    selected_tenant_id = requested_tenant_id or str(row_value(tenants[0], "tenant_id"))
+    if not any(str(row_value(item, "tenant_id")) == selected_tenant_id for item in tenants):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="O tenant informado não está vinculado ao usuário autenticado.",
+        )
+    return selected_tenant_id, tenants
+
+
+def to_float(value: Any, default: float = 0.0) -> float:
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def current_date_iso() -> str:
+    return utc_now().date().isoformat()
+
+
+def default_period_days(days: int = 30) -> tuple[str, str]:
+    end_date = utc_now().date()
+    start_date = end_date - timedelta(days=max(days - 1, 0))
+    return start_date.isoformat(), end_date.isoformat()
+
+
+def normalize_ai_limit(options: Mapping[str, Any] | None, *, default: int = 10, maximum: int = 100) -> int:
+    raw_value = (options or {}).get("limit", default)
+    try:
+        limit_value = int(raw_value)
+    except (TypeError, ValueError):
+        limit_value = default
+    return max(1, min(limit_value, maximum))
+
+
+def normalize_ai_period(filters: Mapping[str, Any] | None, *, default_days: int = 30) -> tuple[str, str]:
+    payload = dict(filters or {})
+    start_date = str(payload.get("start_date") or payload.get("startDate") or "").strip()
+    end_date = str(payload.get("end_date") or payload.get("endDate") or "").strip()
+    if not start_date or not end_date:
+        return default_period_days(default_days)
+    return start_date, end_date
+
+
+def normalize_text_filter(filters: Mapping[str, Any] | None, *keys: str) -> str | None:
+    payload = dict(filters or {})
+    for key in keys:
+        value = str(payload.get(key) or "").strip()
+        if value:
+            return value
+    return None
+
+
+def normalize_reference_date(filters: Mapping[str, Any] | None) -> str:
+    payload = dict(filters or {})
+    value = str(payload.get("reference_date") or payload.get("referenceDate") or "").strip()
+    return value or current_date_iso()
+
+
+def build_ilike_param(value: str | None) -> str | None:
+    if not value:
+        return None
+    return f"%{value}%"
+
+
+def build_ai_summary_text(tool_name: str, summary_metrics: Mapping[str, Any]) -> str:
+    if tool_name == "consultar_resumo_vendas":
+        gross_sales = to_float(summary_metrics.get("grossSales"))
+        orders_count = int(summary_metrics.get("ordersCount") or 0)
+        average_ticket = to_float(summary_metrics.get("averageTicket"))
+        return (
+            f"No período consultado, o faturamento efetivo foi de {gross_sales:.2f}, "
+            f"com {orders_count} pedidos faturados e ticket médio de {average_ticket:.2f}."
+        )
+    if tool_name == "consultar_estoque_baixo":
+        low_stock_items = int(summary_metrics.get("itemsCount") or 0)
+        return f"Foram encontrados {low_stock_items} itens com estoque igual ou abaixo do mínimo."
+    if tool_name == "consultar_receber_vencidos":
+        overdue_count = int(summary_metrics.get("titlesCount") or 0)
+        overdue_amount = to_float(summary_metrics.get("openAmountTotal"))
+        return f"Existem {overdue_count} títulos a receber vencidos, somando {overdue_amount:.2f} em aberto."
+    if tool_name == "consultar_pagar_vencidos":
+        overdue_count = int(summary_metrics.get("titlesCount") or 0)
+        overdue_amount = to_float(summary_metrics.get("openAmountTotal"))
+        return f"Existem {overdue_count} contas a pagar vencidas, somando {overdue_amount:.2f} em aberto."
+    if tool_name == "explicar_metrica":
+        metric_name = str(summary_metrics.get("metricName") or "métrica")
+        return f"A métrica consultada foi identificada como {metric_name}."
+    if tool_name == "buscar_glossario":
+        term = str(summary_metrics.get("term") or "termo")
+        return f"O termo consultado foi identificado como {term}."
+    return "Consulta processada com sucesso."
+
+
+def infer_ai_tool(question: str, explicit_tool_name: str | None) -> str:
+    if explicit_tool_name:
+        return explicit_tool_name.strip().lower()
+    normalized = question.strip().lower()
+    if any(term in normalized for term in ("glossário", "glossario", "o que significa", "definição", "definicao", "conceito")):
+        return "buscar_glossario"
+    if any(term in normalized for term in ("métrica", "metrica", "como calcula", "fórmula", "formula")):
+        return "explicar_metrica"
+    if "estoque" in normalized and any(term in normalized for term in ("baixo", "mínimo", "minimo", "ruptura")):
+        return "consultar_estoque_baixo"
+    if any(term in normalized for term in ("receber", "inadimpl", "cliente em aberto")) and any(term in normalized for term in ("vencid", "atras")):
+        return "consultar_receber_vencidos"
+    if any(term in normalized for term in ("pagar", "fornecedor")) and any(term in normalized for term in ("vencid", "atras")):
+        return "consultar_pagar_vencidos"
+    if any(term in normalized for term in ("faturamento", "ticket", "pedido", "vendas", "venda")):
+        return "consultar_resumo_vendas"
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="Nao foi possivel inferir a tool da consulta. Informe toolName explicitamente.",
+    )
+
+
+def insert_ai_query_audit(
+    db: Any,
+    *,
+    tenant_id: str,
+    user_id: str,
+    session_id: str | None,
+    question_text: str,
+    normalized_intent: str,
+    tool_name: str,
+    source_schema: str | None,
+    source_object: str | None,
+    filters_json: Mapping[str, Any],
+    row_count: int | None,
+    result_summary: str | None,
+    status_text: str,
+    error_message: str | None,
+    started_at_value: str,
+    finished_at_value: str,
+) -> str:
+    audit_id = str(uuid4())
+    execute(
+        db,
+        """
+        INSERT INTO olist_ai.ai_query_audit (
+          audit_id,
+          tenant_id,
+          user_id,
+          session_id,
+          question_text,
+          normalized_intent,
+          tool_name,
+          source_schema,
+          source_object,
+          filters_json,
+          row_count,
+          result_summary,
+          started_at,
+          finished_at,
+          status,
+          error_message
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            audit_id,
+            tenant_id,
+            user_id,
+            session_id,
+            question_text,
+            normalized_intent,
+            tool_name,
+            source_schema,
+            source_object,
+            json.dumps(filters_json, ensure_ascii=True),
+            row_count,
+            result_summary,
+            started_at_value,
+            finished_at_value,
+            status_text,
+            error_message,
+        ),
+    )
+    return audit_id
+
+
+def execute_ai_sales_summary(
+    db: Any,
+    *,
+    tenant_id: str,
+    filters: Mapping[str, Any],
+    options: Mapping[str, Any],
+) -> dict[str, Any]:
+    start_date, end_date = normalize_ai_period(filters)
+    vendor_name = normalize_text_filter(filters, "vendor_name", "vendorName")
+    contact_name = normalize_text_filter(filters, "contact_name", "contactName")
+    order_origin_name = normalize_text_filter(filters, "order_origin_name", "orderOriginName")
+    vendor_filter = vendor_name or ""
+    contact_filter = contact_name or ""
+    order_origin_filter = order_origin_name or ""
+    summary_row = fetchone(
+        db,
+        """
+        SELECT
+          COUNT(DISTINCT order_id) AS orders_count,
+          COALESCE(SUM(total_order_amount), 0::numeric) AS gross_sales,
+          COALESCE(AVG(total_order_amount), 0::numeric) AS average_ticket
+        FROM olist_mart.mv_fact_orders
+        WHERE tenant_id = ?
+          AND is_billed_order = TRUE
+          AND billed_on BETWEEN ? AND ?
+          AND (? = '' OR vendor_name ILIKE ?)
+          AND (? = '' OR contact_name ILIKE ?)
+          AND (? = '' OR order_origin_name ILIKE ?)
+        """,
+        (
+            tenant_id,
+            start_date,
+            end_date,
+            vendor_filter,
+            build_ilike_param(vendor_name) or "%",
+            contact_filter,
+            build_ilike_param(contact_name) or "%",
+            order_origin_filter,
+            build_ilike_param(order_origin_name) or "%",
+        ),
+    )
+    include_breakdown = bool((options or {}).get("includeBreakdown", True) or (options or {}).get("include_breakdown", True))
+    breakdown_rows = fetchall(
+        db,
+        """
+        SELECT
+          billed_on,
+          COUNT(DISTINCT order_id) AS orders_count,
+          COALESCE(SUM(total_order_amount), 0::numeric) AS gross_sales
+        FROM olist_mart.mv_fact_orders
+        WHERE tenant_id = ?
+          AND is_billed_order = TRUE
+          AND billed_on BETWEEN ? AND ?
+          AND (? = '' OR vendor_name ILIKE ?)
+          AND (? = '' OR contact_name ILIKE ?)
+          AND (? = '' OR order_origin_name ILIKE ?)
+        GROUP BY billed_on
+        ORDER BY billed_on DESC
+        LIMIT 31
+        """,
+        (
+            tenant_id,
+            start_date,
+            end_date,
+            vendor_filter,
+            build_ilike_param(vendor_name) or "%",
+            contact_filter,
+            build_ilike_param(contact_name) or "%",
+            order_origin_filter,
+            build_ilike_param(order_origin_name) or "%",
+        ),
+    ) if include_breakdown else []
+    summary_metrics = {
+        "grossSales": to_float(row_value(summary_row, "gross_sales") if summary_row else 0),
+        "ordersCount": int(row_value(summary_row, "orders_count") or 0) if summary_row else 0,
+        "averageTicket": to_float(row_value(summary_row, "average_ticket") if summary_row else 0),
+    }
+    return {
+        "domain": "vendas",
+        "toolName": "consultar_resumo_vendas",
+        "intentName": "sales_summary",
+        "summaryMetrics": summary_metrics,
+        "resultTable": [
+            {
+                "billedOn": str(row_value(item, "billed_on")),
+                "ordersCount": int(row_value(item, "orders_count") or 0),
+                "grossSales": to_float(row_value(item, "gross_sales")),
+            }
+            for item in breakdown_rows
+        ],
+        "appliedFilters": {
+            "startDate": start_date,
+            "endDate": end_date,
+            "vendorName": vendor_name,
+            "contactName": contact_name,
+            "orderOriginName": order_origin_name,
+            "timeBasis": "billing_date",
+            "isBilledOrder": True,
+        },
+        "source": {"schema": "olist_mart", "object": "mv_fact_orders"},
+    }
+
+
+def execute_ai_inventory_below_minimum(
+    db: Any,
+    *,
+    tenant_id: str,
+    filters: Mapping[str, Any],
+    options: Mapping[str, Any],
+) -> dict[str, Any]:
+    limit_value = normalize_ai_limit(options, default=20, maximum=200)
+    product_name = normalize_text_filter(filters, "product_name", "productName")
+    product_code = normalize_text_filter(filters, "product_code", "productCode")
+    deposit_name = normalize_text_filter(filters, "deposit_name", "depositName")
+    product_name_filter = product_name or ""
+    product_code_filter = product_code or ""
+    deposit_name_filter = deposit_name or ""
+    rows = fetchall(
+        db,
+        """
+        SELECT
+          product_id,
+          product_code,
+          product_name,
+          deposit_name,
+          available_qty,
+          stock_min_qty,
+          reserved_qty,
+          physical_qty
+        FROM olist_mart.mv_fact_inventory
+        WHERE tenant_id = ?
+          AND is_below_min_stock = TRUE
+          AND (? = '' OR product_name ILIKE ?)
+          AND (? = '' OR product_code ILIKE ?)
+          AND (? = '' OR deposit_name ILIKE ?)
+        ORDER BY available_qty ASC, product_name ASC
+        LIMIT ?
+        """,
+        (
+            tenant_id,
+            product_name_filter,
+            build_ilike_param(product_name) or "%",
+            product_code_filter,
+            build_ilike_param(product_code) or "%",
+            deposit_name_filter,
+            build_ilike_param(deposit_name) or "%",
+            limit_value,
+        ),
+    )
+    return {
+        "domain": "estoque",
+        "toolName": "consultar_estoque_baixo",
+        "intentName": "inventory_below_minimum",
+        "summaryMetrics": {"itemsCount": len(rows)},
+        "resultTable": [
+            {
+                "productId": str(row_value(item, "product_id")),
+                "productCode": row_value(item, "product_code"),
+                "productName": row_value(item, "product_name"),
+                "depositName": row_value(item, "deposit_name"),
+                "availableQty": to_float(row_value(item, "available_qty")),
+                "stockMinQty": to_float(row_value(item, "stock_min_qty")),
+                "reservedQty": to_float(row_value(item, "reserved_qty")),
+                "physicalQty": to_float(row_value(item, "physical_qty")),
+            }
+            for item in rows
+        ],
+        "appliedFilters": {
+            "productName": product_name,
+            "productCode": product_code,
+            "depositName": deposit_name,
+            "limit": limit_value,
+            "isBelowMinStock": True,
+        },
+        "source": {"schema": "olist_mart", "object": "mv_fact_inventory"},
+    }
+
+
+def execute_ai_receivables_overdue(
+    db: Any,
+    *,
+    tenant_id: str,
+    filters: Mapping[str, Any],
+    options: Mapping[str, Any],
+) -> dict[str, Any]:
+    limit_value = normalize_ai_limit(options, default=20, maximum=200)
+    reference_date = normalize_reference_date(filters)
+    contact_name = normalize_text_filter(filters, "contact_name", "contactName")
+    contact_filter = contact_name or ""
+    rows = fetchall(
+        db,
+        """
+        SELECT
+          contact_name,
+          order_number,
+          invoice_number,
+          status,
+          due_date,
+          open_amount,
+          amount
+        FROM olist_mart.mv_fact_receivables
+        WHERE tenant_id = ?
+          AND due_date < ?
+          AND open_amount > 0
+          AND (? = '' OR contact_name ILIKE ?)
+        ORDER BY due_date ASC, open_amount DESC
+        LIMIT ?
+        """,
+        (tenant_id, reference_date, contact_filter, build_ilike_param(contact_name) or "%", limit_value),
+    )
+    summary_row = fetchone(
+        db,
+        """
+        SELECT
+          COUNT(*) AS titles_count,
+          COALESCE(SUM(open_amount), 0::numeric) AS open_amount_total
+        FROM olist_mart.mv_fact_receivables
+        WHERE tenant_id = ?
+          AND due_date < ?
+          AND open_amount > 0
+          AND (? = '' OR contact_name ILIKE ?)
+        """,
+        (tenant_id, reference_date, contact_filter, build_ilike_param(contact_name) or "%"),
+    )
+    return {
+        "domain": "financeiro",
+        "toolName": "consultar_receber_vencidos",
+        "intentName": "receivables_overdue",
+        "summaryMetrics": {
+            "titlesCount": int(row_value(summary_row, "titles_count") or 0) if summary_row else 0,
+            "openAmountTotal": to_float(row_value(summary_row, "open_amount_total") if summary_row else 0),
+        },
+        "resultTable": [
+            {
+                "contactName": row_value(item, "contact_name"),
+                "orderNumber": row_value(item, "order_number"),
+                "invoiceNumber": row_value(item, "invoice_number"),
+                "status": row_value(item, "status"),
+                "dueDate": str(row_value(item, "due_date")),
+                "openAmount": to_float(row_value(item, "open_amount")),
+                "amount": to_float(row_value(item, "amount")),
+            }
+            for item in rows
+        ],
+        "appliedFilters": {
+            "referenceDate": reference_date,
+            "contactName": contact_name,
+            "limit": limit_value,
+            "openAmountGt": 0,
+        },
+        "source": {"schema": "olist_mart", "object": "mv_fact_receivables"},
+    }
+
+
+def execute_ai_payables_overdue(
+    db: Any,
+    *,
+    tenant_id: str,
+    filters: Mapping[str, Any],
+    options: Mapping[str, Any],
+) -> dict[str, Any]:
+    limit_value = normalize_ai_limit(options, default=20, maximum=200)
+    reference_date = normalize_reference_date(filters)
+    contact_name = normalize_text_filter(filters, "contact_name", "contactName")
+    contact_filter = contact_name or ""
+    rows = fetchall(
+        db,
+        """
+        SELECT
+          contact_name,
+          purchase_order_number,
+          expense_category_name,
+          status,
+          due_date,
+          open_amount,
+          amount
+        FROM olist_mart.mv_fact_payables
+        WHERE tenant_id = ?
+          AND due_date < ?
+          AND open_amount > 0
+          AND (? = '' OR contact_name ILIKE ?)
+        ORDER BY due_date ASC, open_amount DESC
+        LIMIT ?
+        """,
+        (tenant_id, reference_date, contact_filter, build_ilike_param(contact_name) or "%", limit_value),
+    )
+    summary_row = fetchone(
+        db,
+        """
+        SELECT
+          COUNT(*) AS titles_count,
+          COALESCE(SUM(open_amount), 0::numeric) AS open_amount_total
+        FROM olist_mart.mv_fact_payables
+        WHERE tenant_id = ?
+          AND due_date < ?
+          AND open_amount > 0
+          AND (? = '' OR contact_name ILIKE ?)
+        """,
+        (tenant_id, reference_date, contact_filter, build_ilike_param(contact_name) or "%"),
+    )
+    return {
+        "domain": "financeiro",
+        "toolName": "consultar_pagar_vencidos",
+        "intentName": "payables_overdue",
+        "summaryMetrics": {
+            "titlesCount": int(row_value(summary_row, "titles_count") or 0) if summary_row else 0,
+            "openAmountTotal": to_float(row_value(summary_row, "open_amount_total") if summary_row else 0),
+        },
+        "resultTable": [
+            {
+                "contactName": row_value(item, "contact_name"),
+                "purchaseOrderNumber": row_value(item, "purchase_order_number"),
+                "expenseCategoryName": row_value(item, "expense_category_name"),
+                "status": row_value(item, "status"),
+                "dueDate": str(row_value(item, "due_date")),
+                "openAmount": to_float(row_value(item, "open_amount")),
+                "amount": to_float(row_value(item, "amount")),
+            }
+            for item in rows
+        ],
+        "appliedFilters": {
+            "referenceDate": reference_date,
+            "contactName": contact_name,
+            "limit": limit_value,
+            "openAmountGt": 0,
+        },
+        "source": {"schema": "olist_mart", "object": "mv_fact_payables"},
+    }
+
+
+def execute_ai_metric_explanation(
+    db: Any,
+    *,
+    tenant_id: str,
+    question: str,
+    filters: Mapping[str, Any],
+) -> dict[str, Any]:
+    metric_lookup = normalize_text_filter(filters, "metric_code", "metricCode", "term", "name") or question.strip()
+    row = fetchone(
+        db,
+        """
+        SELECT
+          metric_code,
+          metric_name,
+          domain,
+          definition,
+          formula_description,
+          sql_rule_summary,
+          source_schema,
+          source_object,
+          time_basis,
+          business_notes
+        FROM olist_ai.ai_metric_catalog
+        WHERE tenant_id = ?
+          AND (
+            metric_code ILIKE ?
+            OR metric_name ILIKE ?
+            OR definition ILIKE ?
+          )
+        ORDER BY
+          CASE
+            WHEN lower(metric_code) = lower(?) THEN 1
+            WHEN lower(metric_name) = lower(?) THEN 2
+            ELSE 3
+          END,
+          metric_name
+        LIMIT 1
+        """,
+        (
+            tenant_id,
+            build_ilike_param(metric_lookup),
+            build_ilike_param(metric_lookup),
+            build_ilike_param(metric_lookup),
+            metric_lookup,
+            metric_lookup,
+        ),
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Métrica não encontrada na camada semântica.")
+    return {
+        "domain": row_value(row, "domain"),
+        "toolName": "explicar_metrica",
+        "intentName": "metric_explanation",
+        "summaryMetrics": {
+            "metricCode": row_value(row, "metric_code"),
+            "metricName": row_value(row, "metric_name"),
+        },
+        "resultTable": [
+            {
+                "metricCode": row_value(row, "metric_code"),
+                "metricName": row_value(row, "metric_name"),
+                "definition": row_value(row, "definition"),
+                "formulaDescription": row_value(row, "formula_description"),
+                "sqlRuleSummary": row_value(row, "sql_rule_summary"),
+                "timeBasis": row_value(row, "time_basis"),
+                "sourceSchema": row_value(row, "source_schema"),
+                "sourceObject": row_value(row, "source_object"),
+                "businessNotes": row_value(row, "business_notes"),
+            }
+        ],
+        "appliedFilters": {"lookup": metric_lookup},
+        "source": {"schema": "olist_ai", "object": "ai_metric_catalog"},
+    }
+
+
+def execute_ai_glossary_lookup(
+    db: Any,
+    *,
+    tenant_id: str,
+    question: str,
+    filters: Mapping[str, Any],
+) -> dict[str, Any]:
+    term_lookup = normalize_text_filter(filters, "term", "normalized_term", "normalizedTerm", "name") or question.strip()
+    normalized_question = question.strip().lower()
+    row = fetchone(
+        db,
+        """
+        SELECT
+          term,
+          normalized_term,
+          aliases,
+          domain,
+          definition,
+          business_notes,
+          source_reference
+        FROM olist_ai.ai_business_glossary
+        WHERE tenant_id = ?
+          AND (
+            normalized_term ILIKE ?
+            OR term ILIKE ?
+            OR definition ILIKE ?
+            OR aliases::text ILIKE ?
+            OR ? ILIKE ('%%' || lower(normalized_term) || '%%')
+            OR ? ILIKE ('%%' || lower(term) || '%%')
+          )
+        ORDER BY
+          CASE
+            WHEN lower(normalized_term) = lower(?) THEN 1
+            WHEN lower(term) = lower(?) THEN 2
+            WHEN ? ILIKE ('%%' || lower(normalized_term) || '%%') THEN 3
+            WHEN ? ILIKE ('%%' || lower(term) || '%%') THEN 4
+            ELSE 5
+          END,
+          term
+        LIMIT 1
+        """,
+        (
+            tenant_id,
+            build_ilike_param(term_lookup),
+            build_ilike_param(term_lookup),
+            build_ilike_param(term_lookup),
+            build_ilike_param(term_lookup),
+            normalized_question,
+            normalized_question,
+            term_lookup,
+            term_lookup,
+            normalized_question,
+            normalized_question,
+        ),
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Termo não encontrado no glossário semântico.")
+    return {
+        "domain": row_value(row, "domain"),
+        "toolName": "buscar_glossario",
+        "intentName": "glossary_lookup",
+        "summaryMetrics": {
+            "term": row_value(row, "term"),
+            "normalizedTerm": row_value(row, "normalized_term"),
+        },
+        "resultTable": [
+            {
+                "term": row_value(row, "term"),
+                "normalizedTerm": row_value(row, "normalized_term"),
+                "aliases": parse_json_list(row_value(row, "aliases")),
+                "definition": row_value(row, "definition"),
+                "businessNotes": row_value(row, "business_notes"),
+                "sourceReference": row_value(row, "source_reference"),
+            }
+        ],
+        "appliedFilters": {"lookup": term_lookup},
+        "source": {"schema": "olist_ai", "object": "ai_business_glossary"},
+    }
+
+
+def execute_ai_tool(
+    db: Any,
+    *,
+    tenant_id: str,
+    question: str,
+    tool_name: str,
+    filters: Mapping[str, Any],
+    options: Mapping[str, Any],
+) -> dict[str, Any]:
+    normalized_tool = tool_name.strip().lower()
+    if normalized_tool == "consultar_resumo_vendas":
+        return execute_ai_sales_summary(db, tenant_id=tenant_id, filters=filters, options=options)
+    if normalized_tool == "consultar_estoque_baixo":
+        return execute_ai_inventory_below_minimum(db, tenant_id=tenant_id, filters=filters, options=options)
+    if normalized_tool == "consultar_receber_vencidos":
+        return execute_ai_receivables_overdue(db, tenant_id=tenant_id, filters=filters, options=options)
+    if normalized_tool == "consultar_pagar_vencidos":
+        return execute_ai_payables_overdue(db, tenant_id=tenant_id, filters=filters, options=options)
+    if normalized_tool == "explicar_metrica":
+        return execute_ai_metric_explanation(db, tenant_id=tenant_id, question=question, filters=filters)
+    if normalized_tool == "buscar_glossario":
+        return execute_ai_glossary_lookup(db, tenant_id=tenant_id, question=question, filters=filters)
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=f"Tool de IA ainda não implementada: {normalized_tool}",
+    )
+
+
 @contextmanager
 def get_sqlite_db() -> Generator[sqlite3.Connection, None, None]:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -1067,6 +1835,14 @@ class ExtractionRunPayload(BaseModel):
     executionType: str = "incremental"
 
 
+class AiQueryPayload(BaseModel):
+    question: str = ""
+    tenantId: str | None = None
+    toolName: str | None = None
+    filters: dict[str, Any] = Field(default_factory=dict)
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -1095,7 +1871,12 @@ class AuditResponse(BaseModel):
 app = FastAPI(title="Albertina API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3500", "http://127.0.0.1:3500"],
+    allow_origins=[
+        "http://localhost:3500",
+        "http://127.0.0.1:3500",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -2035,6 +2816,374 @@ def test_olist_api(current_user: RowData = Depends(get_current_user)) -> dict[st
         },
         "summary": summary,
         "olist": build_olist_settings_payload(updated),
+    }
+
+
+@app.get("/api/ai/overview")
+def ai_overview(
+    tenant_id: str | None = Query(default=None),
+    current_user: RowData = Depends(get_current_user),
+) -> dict[str, Any]:
+    actor_id = str(row_value(current_user, "id"))
+    with get_db() as db:
+        selected_tenant_id, tenants = resolve_ai_tenant_scope(db, actor_id, tenant_id)
+        vector_row = fetchone(db, "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') AS enabled")
+        counts_row = fetchone(
+            db,
+            """
+            SELECT
+              (SELECT COUNT(*) FROM olist_ai.ai_metric_catalog WHERE tenant_id = ?) AS metrics_total,
+              (SELECT COUNT(*) FROM olist_ai.ai_business_glossary WHERE tenant_id = ?) AS glossary_total,
+              (SELECT COUNT(*) FROM olist_ai.ai_query_templates WHERE tenant_id = ?) AS templates_total,
+              (SELECT COUNT(*) FROM olist_ai.ai_prompt_policies WHERE tenant_id = ?) AS policies_total,
+              (SELECT COUNT(*) FROM olist_ai.ai_documents WHERE tenant_id = ?) AS documents_total
+            """,
+            (selected_tenant_id, selected_tenant_id, selected_tenant_id, selected_tenant_id, selected_tenant_id),
+        )
+        key_metrics = fetchall(
+            db,
+            """
+            SELECT metric_code, metric_name, domain, source_object, time_basis
+            FROM olist_ai.ai_metric_catalog
+            WHERE tenant_id = ?
+              AND status = 'active'
+            ORDER BY domain, metric_name
+            LIMIT 8
+            """,
+            (selected_tenant_id,),
+        )
+    return {
+        "tenantId": selected_tenant_id,
+        "tenants": [
+            {
+                "tenantId": str(row_value(item, "tenant_id")),
+                "tenantCode": row_value(item, "tenant_code"),
+                "tenantName": row_value(item, "tenant_name"),
+                "status": row_value(item, "status"),
+                "role": row_value(item, "role"),
+            }
+            for item in tenants
+        ],
+        "pgvectorEnabled": bool(row_value(vector_row, "enabled")) if vector_row else False,
+        "counts": {
+            "metrics": int(row_value(counts_row, "metrics_total") or 0) if counts_row else 0,
+            "glossary": int(row_value(counts_row, "glossary_total") or 0) if counts_row else 0,
+            "templates": int(row_value(counts_row, "templates_total") or 0) if counts_row else 0,
+            "policies": int(row_value(counts_row, "policies_total") or 0) if counts_row else 0,
+            "documents": int(row_value(counts_row, "documents_total") or 0) if counts_row else 0,
+        },
+        "keyMetrics": [
+            {
+                "metricCode": row_value(item, "metric_code"),
+                "metricName": row_value(item, "metric_name"),
+                "domain": row_value(item, "domain"),
+                "sourceObject": row_value(item, "source_object"),
+                "timeBasis": row_value(item, "time_basis"),
+            }
+            for item in key_metrics
+        ],
+    }
+
+
+@app.get("/api/ai/metrics")
+def ai_metrics(
+    tenant_id: str | None = Query(default=None),
+    domain: str | None = Query(default=None),
+    current_user: RowData = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    actor_id = str(row_value(current_user, "id"))
+    with get_db() as db:
+        selected_tenant_id, _ = resolve_ai_tenant_scope(db, actor_id, tenant_id)
+        if domain:
+            rows = fetchall(
+                db,
+                """
+                SELECT
+                  metric_code,
+                  metric_name,
+                  domain,
+                  definition,
+                  formula_description,
+                  sql_rule_summary,
+                  source_schema,
+                  source_object,
+                  time_basis,
+                  allowed_profiles,
+                  status,
+                  business_notes
+                FROM olist_ai.ai_metric_catalog
+                WHERE tenant_id = ?
+                  AND domain = ?
+                ORDER BY domain, metric_name
+                """,
+                (selected_tenant_id, domain),
+            )
+        else:
+            rows = fetchall(
+                db,
+                """
+                SELECT
+                  metric_code,
+                  metric_name,
+                  domain,
+                  definition,
+                  formula_description,
+                  sql_rule_summary,
+                  source_schema,
+                  source_object,
+                  time_basis,
+                  allowed_profiles,
+                  status,
+                  business_notes
+                FROM olist_ai.ai_metric_catalog
+                WHERE tenant_id = ?
+                ORDER BY domain, metric_name
+                """,
+                (selected_tenant_id,),
+            )
+    return [
+        {
+            "metricCode": row_value(row, "metric_code"),
+            "metricName": row_value(row, "metric_name"),
+            "domain": row_value(row, "domain"),
+            "definition": row_value(row, "definition"),
+            "formulaDescription": row_value(row, "formula_description"),
+            "sqlRuleSummary": row_value(row, "sql_rule_summary"),
+            "sourceSchema": row_value(row, "source_schema"),
+            "sourceObject": row_value(row, "source_object"),
+            "timeBasis": row_value(row, "time_basis"),
+            "allowedProfiles": parse_json_list(row_value(row, "allowed_profiles")),
+            "status": row_value(row, "status"),
+            "businessNotes": row_value(row, "business_notes"),
+        }
+        for row in rows
+    ]
+
+
+@app.get("/api/ai/glossary")
+def ai_glossary(
+    tenant_id: str | None = Query(default=None),
+    domain: str | None = Query(default=None),
+    current_user: RowData = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    actor_id = str(row_value(current_user, "id"))
+    with get_db() as db:
+        selected_tenant_id, _ = resolve_ai_tenant_scope(db, actor_id, tenant_id)
+        if domain:
+            rows = fetchall(
+                db,
+                """
+                SELECT
+                  term,
+                  normalized_term,
+                  aliases,
+                  domain,
+                  definition,
+                  business_notes,
+                  source_reference,
+                  status
+                FROM olist_ai.ai_business_glossary
+                WHERE tenant_id = ?
+                  AND domain = ?
+                ORDER BY domain, term
+                """,
+                (selected_tenant_id, domain),
+            )
+        else:
+            rows = fetchall(
+                db,
+                """
+                SELECT
+                  term,
+                  normalized_term,
+                  aliases,
+                  domain,
+                  definition,
+                  business_notes,
+                  source_reference,
+                  status
+                FROM olist_ai.ai_business_glossary
+                WHERE tenant_id = ?
+                ORDER BY domain, term
+                """,
+                (selected_tenant_id,),
+            )
+    return [
+        {
+            "term": row_value(row, "term"),
+            "normalizedTerm": row_value(row, "normalized_term"),
+            "aliases": parse_json_list(row_value(row, "aliases")),
+            "domain": row_value(row, "domain"),
+            "definition": row_value(row, "definition"),
+            "businessNotes": row_value(row, "business_notes"),
+            "sourceReference": row_value(row, "source_reference"),
+            "status": row_value(row, "status"),
+        }
+        for row in rows
+    ]
+
+
+@app.get("/api/ai/templates")
+def ai_templates(
+    tenant_id: str | None = Query(default=None),
+    domain: str | None = Query(default=None),
+    current_user: RowData = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    actor_id = str(row_value(current_user, "id"))
+    with get_db() as db:
+        selected_tenant_id, _ = resolve_ai_tenant_scope(db, actor_id, tenant_id)
+        if domain:
+            rows = fetchall(
+                db,
+                """
+                SELECT
+                  tool_name,
+                  intent_name,
+                  template_description,
+                  domain,
+                  source_schema,
+                  source_object,
+                  allowed_filters,
+                  required_filters,
+                  default_limit,
+                  max_limit,
+                  response_shape,
+                  status
+                FROM olist_ai.ai_query_templates
+                WHERE tenant_id = ?
+                  AND domain = ?
+                ORDER BY domain, tool_name
+                """,
+                (selected_tenant_id, domain),
+            )
+        else:
+            rows = fetchall(
+                db,
+                """
+                SELECT
+                  tool_name,
+                  intent_name,
+                  template_description,
+                  domain,
+                  source_schema,
+                  source_object,
+                  allowed_filters,
+                  required_filters,
+                  default_limit,
+                  max_limit,
+                  response_shape,
+                  status
+                FROM olist_ai.ai_query_templates
+                WHERE tenant_id = ?
+                ORDER BY domain, tool_name
+                """,
+                (selected_tenant_id,),
+            )
+    return [
+        {
+            "toolName": row_value(row, "tool_name"),
+            "intentName": row_value(row, "intent_name"),
+            "description": row_value(row, "template_description"),
+            "domain": row_value(row, "domain"),
+            "sourceSchema": row_value(row, "source_schema"),
+            "sourceObject": row_value(row, "source_object"),
+            "allowedFilters": parse_json_list(row_value(row, "allowed_filters")),
+            "requiredFilters": parse_json_list(row_value(row, "required_filters")),
+            "defaultLimit": row_value(row, "default_limit"),
+            "maxLimit": row_value(row, "max_limit"),
+            "responseShape": row_value(row, "response_shape") or {},
+            "status": row_value(row, "status"),
+        }
+        for row in rows
+    ]
+
+
+@app.post("/api/ai/query")
+def ai_query(
+    payload: AiQueryPayload,
+    current_user: RowData = Depends(get_current_user),
+) -> dict[str, Any]:
+    actor_id = str(row_value(current_user, "id"))
+    started_at_dt = utc_now()
+    started_at_value = to_db_timestamp(started_at_dt)
+    question_text = payload.question.strip()
+    filters = dict(payload.filters or {})
+    options = dict(payload.options or {})
+    explicit_tool_name = str(payload.toolName or "").strip() or None
+    tool_name = infer_ai_tool(question_text, explicit_tool_name)
+
+    with get_db() as db:
+        selected_tenant_id, _ = resolve_ai_tenant_scope(db, actor_id, payload.tenantId)
+        try:
+            result = execute_ai_tool(
+                db,
+                tenant_id=selected_tenant_id,
+                question=question_text,
+                tool_name=tool_name,
+                filters=filters,
+                options=options,
+            )
+            summary_text = build_ai_summary_text(tool_name, result.get("summaryMetrics") or {})
+            finished_at_value = to_db_timestamp()
+            audit_id = insert_ai_query_audit(
+                db,
+                tenant_id=selected_tenant_id,
+                user_id=actor_id,
+                session_id=None,
+                question_text=question_text or tool_name,
+                normalized_intent=str(result.get("intentName") or tool_name),
+                tool_name=tool_name,
+                source_schema=str((result.get("source") or {}).get("schema") or ""),
+                source_object=str((result.get("source") or {}).get("object") or ""),
+                filters_json=result.get("appliedFilters") or filters,
+                row_count=len(result.get("resultTable") or []),
+                result_summary=summary_text,
+                status_text="success",
+                error_message=None,
+                started_at_value=started_at_value,
+                finished_at_value=finished_at_value,
+            )
+        except HTTPException as error:
+            finished_at_value = to_db_timestamp()
+            audit_id = insert_ai_query_audit(
+                db,
+                tenant_id=selected_tenant_id,
+                user_id=actor_id,
+                session_id=None,
+                question_text=question_text or tool_name,
+                normalized_intent=tool_name,
+                tool_name=tool_name,
+                source_schema=None,
+                source_object=None,
+                filters_json=filters,
+                row_count=0,
+                result_summary=None,
+                status_text="blocked" if error.status_code in {403, 404, 422} else "error",
+                error_message=str(error.detail),
+                started_at_value=started_at_value,
+                finished_at_value=finished_at_value,
+            )
+            raise HTTPException(
+                status_code=error.status_code,
+                detail={"message": error.detail, "auditId": audit_id, "toolName": tool_name},
+            ) from error
+
+    return {
+        "tenantId": selected_tenant_id,
+        "toolName": tool_name,
+        "domain": result.get("domain"),
+        "intentName": result.get("intentName"),
+        "summaryText": summary_text,
+        "summaryMetrics": result.get("summaryMetrics") or {},
+        "resultTable": result.get("resultTable") or [],
+        "appliedFilters": result.get("appliedFilters") or filters,
+        "source": result.get("source") or {},
+        "audit": {
+            "auditId": audit_id,
+            "status": "success",
+            "startedAt": started_at_value,
+            "finishedAt": finished_at_value,
+        },
     }
 
 

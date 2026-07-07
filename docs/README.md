@@ -17,6 +17,11 @@ Objetivo:
 
 ### Guias principais
 
+- [ai_erp_consulta_arquitetura_plano_execucao.md](file:///c:/GitHubLocal/Albertina/docs/ai_erp_consulta_arquitetura_plano_execucao.md): arquitetura alvo e plano de execução da IA para consulta em linguagem natural sobre os dados do ERP
+- [ai_erp_mvp_metricas_regras_tools.md](file:///c:/GitHubLocal/Albertina/docs/ai_erp_mvp_metricas_regras_tools.md): matriz operacional do MVP com métricas, regras funcionais, fontes e tools da IA
+- [ai_erp_tabelas_semanticas_especificacao.md](file:///c:/GitHubLocal/Albertina/docs/ai_erp_tabelas_semanticas_especificacao.md): especificação técnica da camada semântica `olist_ai` para métricas, glossário, auditoria e RAG
+- [ai_erp_tools_especificacao_tecnica.md](file:///c:/GitHubLocal/Albertina/docs/ai_erp_tools_especificacao_tecnica.md): especificação técnica do catálogo inicial de tools da IA, contratos e regras operacionais
+- [ai_erp_backlog_implementacao.md](file:///c:/GitHubLocal/Albertina/docs/ai_erp_backlog_implementacao.md): backlog técnico por módulo, arquivo e etapa de implementação da solução de IA
 - [olist_mapping_guide.md](file:///c:/GitHubLocal/Albertina/docs/olist_mapping_guide.md): guia técnico completo de mapeamento Olist ERP -> banco
 - [olist_mapping_guide_executive.md](file:///c:/GitHubLocal/Albertina/docs/olist_mapping_guide_executive.md): visão executiva do mapeamento
 - [olist_mapping_matrix_consolidated.md](file:///c:/GitHubLocal/Albertina/docs/olist_mapping_matrix_consolidated.md): matriz consolidada campo a campo
