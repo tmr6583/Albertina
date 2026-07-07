@@ -1,16 +1,17 @@
 # Revisão e Correção de Código Olist-PostgreSQL
 
 > **Workspace:** c:\GitHubLocal\Albertina
+> **Status documental:** registro histórico de sessão de revisão e correção; não substitui os guias técnicos atuais em `docs/`.
 
 ---
 
 **User**
 
-Aja como um Engenheiro de Software Sênior e Especialista em QA (Quality Assurance). Sua tarefa é fazer uma revisão profunda, simular a execução de ponta a ponta e corrigir problemas no código, não esquecendo da integração com Banco de Dados e APIs. 
+Atue como um Engenheiro de Software Sênior e Especialista em QA (Quality Assurance). Sua tarefa é fazer uma revisão profunda, simular a execução de ponta a ponta e corrigir problemas no código, sem esquecer da integração com banco de dados e APIs. 
  A aplicação consome dados do ERP Olist via API e estrutura uma base analítica no PostgreSQL hospedado no Supabase. Responsável por extração, modelagem, carga e manutenção da sincronização. 
  Por favor, siga rigorosamente as etapas abaixo: 
  1. COMPREENSÃO, ARQUITETURA E INTEGRAÇÃO 
- - Analise o código e explique brevemente o fluxo da aplicação. 
+- Analise o código e explique brevemente o fluxo da aplicação. 
  - Avalie a integração com o Banco de Dados 
  - Avalie o consumo/criação de APIs: os endpoints seguem as boas práticas? O tratamento de status codes (200, 400, 404, 500) e payloads está correto? 
  2. EXECUÇÃO SIMULADA DE PONTA A PONTA (Dry Run) 
@@ -43,7 +44,7 @@ Entendido.
 Fiquei alinhado com o escopo:
 - revisão profunda de arquitetura, integrações com Olist API e Supabase/PostgreSQL
 - dry run ponta a ponta com cenários de erro
-- identificação de bugs, gargalos, riscos e más práticas
+- identificacao de bugs, gargalos, riscos e más práticas
 - correções/refatoração no código
 - criação de testes unitários e de integração com mocks de API e banco
 
@@ -127,15 +128,15 @@ Vou fazer uma última checagem de arquivos alterados e então te entrego o resum
 - Mantive o trabalho por cima do estado atual do workspace, sem tentar reverter alterações locais preexistentes.
 
 **Correções**
-- **HTTP resiliente**: a camada `request_json()` agora só faz retry para erros transitórios (`408`, `425`, `429`, `5xx`), evitando repetição inútil em erros definitivos como `404` e `400` fora do caso de ajuste de janela. Veja [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L70-L129).
-- **Autenticação mais segura**: em `401/403`, o fluxo tenta refresh de token e, se continuar falhando, preserva o erro real em vez de terminar com `RuntimeError` genérico após esgotar tentativas. Veja [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L80-L139).
-- **Payload inválido com contexto**: respostas `200` com JSON inválido agora falham com mensagem explícita por endpoint, facilitando suporte e observabilidade. Veja [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L91-L96).
-- **Watermark incremental mais consistente**: o avanço do watermark passa a usar o maior `source_updated_at` realmente observado no passo raiz e nunca ultrapassa o instante de início do workflow, evitando saltos inseguros durante a própria execução; quando não há registros, o fallback continua sendo o instante de início. Veja [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L227-L275) e [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L518-L588).
-- **Script auxiliar corrigido**: `scripts/start_extraction_direct.py` estava apontando para uma classe incompatível com a implementação atual; agora usa o singleton real do serviço. Veja [start_extraction_direct.py](file:///c:/GitHubLocal/Albertina/scripts/start_extraction_direct.py#L1-L23).
+- **HTTP resiliente**: a camada `request_json()` agora só faz retry para erros transitórios (`408`, `425`, `429`, `5xx`), evitando repetição inútil em erros definitivos como `404` e `400` fora do caso de ajuste de janela. Vejá [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L70-L129).
+- **Autenticação mais segura**: em `401/403`, o fluxo tenta refresh de token e, se continuar falhando, preserva o erro real em vez de terminar com `RuntimeError` genérico após esgotar tentativas. Vejá [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L80-L139).
+- **Payload inválido com contexto**: respostas `200` com JSON inválido agora falham com mensagem explícita por endpoint, facilitando suporte e observabilidade. Vejá [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L91-L96).
+- **Watermark incremental mais consistente**: o avanço do watermark passa a usar o maior `source_updated_at` realmente observado no passo raiz e nunca ultrapassa o instante de início do workflow, evitando saltos inseguros durante a própria execução; quando não há registros, o fallback continua sendo o instante de início. Vejá [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L227-L275) e [extract.py](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/extract.py#L518-L588).
+- **Script auxiliar corrigido**: `scripts/start_extraction_direct.py` estava apontando para uma classe incompatível com a implementação atual; agora usa o singleton real do serviço. Vejá [start_extraction_direct.py](file:///c:/GitHubLocal/Albertina/scripts/start_extraction_direct.py#L1-L23).
 
 **Testes**
 - **Unitários**: rodei `python -m unittest discover -s backend/tests -p "test_*.py" -v` com `6` testes aprovados.
-- **Cobertura criada**: os testes validam refresh após `401`, retry por `429`, não-retry para erro não transitório, ajuste automático de `dataInicialEmissao` em `400` de plano, persistência correta de watermark observado e fallback de watermark quando o passo incremental retorna vazio. Veja [test_olist_extraction.py](file:///c:/GitHubLocal/Albertina/backend/tests/test_olist_extraction.py#L110-L260).
+- **Cobertura criada**: os testes validam refresh após `401`, retry por `429`, não-retry para erro não transitório, ajuste automático de `dataInicialEmissao` em `400` de plano, persistência correta de watermark observado e fallback de watermark quando o passo incremental retorna vazio. Vejá [test_olist_extraction.py](file:///c:/GitHubLocal/Albertina/backend/tests/test_olist_extraction.py#L110-L260).
 - **Checagem estática**: rodei `python -m compileall backend scripts` com sucesso.
 - **Runtime da API**: rodei `python scripts/runtime_api_validation.py`; os endpoints administrativos e de extração responderam corretamente no backend local, e o artefato foi gerado em `c:\GitHubLocal\Albertina\.runtime_api_validation.json`.
 
@@ -157,7 +158,7 @@ Vou fazer uma última checagem de arquivos alterados e então te entrego o resum
 
 Siga para o próximo passo. Pode realizar uma extração real completa. 
  Monitore a execução e me informe o andamento. 
- Ao final, leia os logs e corrija se tiver erros. 
+ Ao final, leia os logs e corrijá se tiver erros. 
  Ao final, se a execução não tiver erros, certifique-se que a base de dados está atualizada com os dados do ERP Olist.
 
 **Assistant**
@@ -219,7 +220,7 @@ Os tokens já foram gravados com sucesso e a Olist está conectada. Vou disparar
 
 A extração completa foi iniciada em background com `executionId` `8b63f7c2-78e1-4b98-b852-d6e34537ad81`. Vou monitorar agora o progresso por execução e os últimos eventos do log para te atualizar com o andamento real.
 
-A execução já está processando `contacts` sem erros até aqui. Vou pegar o final do log e o estado consolidado da execução para separar o que é progresso novo do que é histórico anterior.
+A execução já está processando `contacts` sem erros até aqui. Vou pegar o final do log e o estado consolidado da execução para separar o que é progresso novo do que é historico anterior.
 
 O fluxo segue saudável e está avançando em `contacts.list` com lotes de `50` registros por página, sem erros até aqui. Vou continuar monitorando até concluir essa entidade e detectar a transição para as próximas etapas.
 
@@ -509,7 +510,7 @@ Se quiser, eu sigo imediatamente nessa investigação runtime e te digo:
 **User**
 
 Siga a investigação. Pare a execução se for preciso. 
- Corrija e acerte tudo para que os logs e as informações na tela da aplicação seja atualizadas online com máximo de delay de 60 segundos.
+ Corrijá e acerte tudo para que os logs e as informações na tela da aplicação sejá atualizadas online com máximo de delay de 60 segundos.
 
 **Assistant**
 
@@ -643,14 +644,14 @@ O MCP de PostgreSQL não respondeu bem aqui, então vou usar uma checagem direta
 
 **User**
 
-A execução chegou ao final. Salvei o log em `c:\GitHubLocal\Albertina\lastlog.txt` . 
- Analise todos os logs e corrija todos os erros.  
+A execução chegou ao final. Salvei o log em `c:\GitHubLocal\Albertina\last_log.txt` . 
+ Análise todos os logs e corrijá todos os erros.  
  Faça um relatório resumido da execução. 
  Informe se a próxima execução será incremental e deve ser mais rápida.
 
 **Assistant**
 
-Vou abrir uma sessão formal de debug para analisar o `lastlog.txt`, cruzar com o código da extração e só então corrigir o que for confirmado por evidência.
+Vou abrir uma sessão formal de debug para analisar o `last_log.txt`, cruzar com o código da extração e só então corrigir o que for confirmado por evidência.
 
 Hipóteses iniciais e falsificáveis:
 - `H1`: a execução terminou com erros operacionais transitórios da Olist (`401/403/429/5xx`) que ainda não estão sendo tratados em algum fluxo específico.
@@ -659,7 +660,7 @@ Hipóteses iniciais e falsificáveis:
 - `H4`: existe entidade ou endpoint com estratégia incremental mal configurada, causando repetição, lentidão desnecessária ou erro no fechamento.
 - `H5`: a próxima execução será incremental e mais rápida apenas se os `watermarks` tiverem sido gravados com sucesso nas entidades incrementais.
 
-Agora vou ler o `lastlog.txt`, localizar os erros reais e cruzar com os pontos do backend ligados a retries, fechamento de execução, watermarks e persistência.
+Agora vou ler o `last_log.txt`, localizar os erros reais e cruzar com os pontos do backend ligados a retries, fechamento de execução, watermarks e persistência.
 
 Os quatro erros do log já formam um padrão claro: falhas pontuais em endpoints secundários de detalhe/anexo, depois de milhares de registros processados com sucesso. Vou inspecionar o catálogo dessas etapas para confirmar se elas devem ser tratadas como opcionais e não derrubar a entidade inteira.
 
@@ -680,14 +681,14 @@ A correção entrou no catálogo e no runner. Agora vou validar com testes focad
 
 O código compilou; falhou só a asserção dos dois testes novos porque eu ainda não tinha transformado `runner._log` em mock nesses cenários. Vou ajustar isso e reexecutar a suíte.
 
-Os testes passaram e a correção está confirmada em cima dos padrões que aparecem no seu `lastlog.txt`. Vou registrar os achados e te entregar o relatório resumido da execução, incluindo o impacto esperado na próxima rodada incremental.
+Os testes passaram e a correção está confirmada em cima dos padrões que aparecem no seu `last_log.txt`. Vou registrar os achados e te entregar o relatório resumido da execução, incluindo o impacto esperado na próxima rodada incremental.
 
 **Achados**
 - Encontrei `4` erros reais e todos vêm de sub-endpoints anexos/opcionais da Olist, não do fluxo principal das entidades.
-- `products` caiu por `404` em [lastlog.txt:L261-L277](file:///c:/GitHubLocal/Albertina/lastlog.txt#L261-L277) no endpoint `/produtos/{idProduto}/fabricado`.
-- `accounts_receivable` caiu por JSON vazio/inválido em [lastlog.txt:L285-L325](file:///c:/GitHubLocal/Albertina/lastlog.txt#L285-L325) no endpoint `/contas-receber/{idContaReceber}/recebimentos`.
-- `accounts_payable` caiu pelo mesmo padrão em [lastlog.txt:L333-L373](file:///c:/GitHubLocal/Albertina/lastlog.txt#L333-L373) no endpoint `/contas-pagar/{idContaPagar}/recebimentos`.
-- `invoices` caiu por `400` em [lastlog.txt:L381-L397](file:///c:/GitHubLocal/Albertina/lastlog.txt#L381-L397) no endpoint `/notas/{idNota}/xml`.
+- `products` caiu por `404` em [last_log.txt:L261-L277](file:///c:/GitHubLocal/Albertina/last_log.txt#L261-L277) no endpoint `/produtos/{idProduto}/fabricado`.
+- `accounts_receivable` caiu por JSON vazio/inválido em [last_log.txt:L285-L325](file:///c:/GitHubLocal/Albertina/last_log.txt#L285-L325) no endpoint `/contas-receber/{idContaReceber}/recebimentos`.
+- `accounts_payable` caiu pelo mesmo padrão em [last_log.txt:L333-L373](file:///c:/GitHubLocal/Albertina/last_log.txt#L333-L373) no endpoint `/contas-pagar/{idContaPagar}/recebimentos`.
+- `invoices` caiu por `400` em [last_log.txt:L381-L397](file:///c:/GitHubLocal/Albertina/last_log.txt#L381-L397) no endpoint `/notas/{idNota}/xml`.
 
 **Correções**
 - Estendi `EndpointStep` para suportar tolerância configurável a falhas opcionais em [catalog.py:L13-L30](file:///c:/GitHubLocal/Albertina/backend/olist_extraction/catalog.py#L13-L30).
@@ -704,7 +705,7 @@ Os testes passaram e a correção está confirmada em cima dos padrões que apar
 **Resumo**
 - Execução: `a7106c3d-cf87-4b26-9604-6caf919edd10`
 - Janela: `27/06/2026 20:34:27` até `28/06/2026 11:18:10`
-- Duração aproximada: `14h43m43s`
+- Duração apróximada: `14h43m43s`
 - Requisições: `49.325`
 - Persistências: `51.041`
 - Entidades previstas: `27`
@@ -813,7 +814,7 @@ Vou subir backend e frontend pelo `Albertina.bat iniciar` e checar saúde nas po
 
 **User**
 
-Na tela extração, aumente a largura do quadro "Andamento por entidade" em 20% pra direita e diminua o quadro "histórico. 
+Na tela extração, aumente a largura do quadro "Andamento por entidade" em 20% pra direita e diminua o quadro "historico. 
  O quadro Cobertura, pode ocupar a larguratoda da tela.
 
 **Assistant**
@@ -884,7 +885,7 @@ Se quiser, posso agora verificar visualmente a tela de extração e confirmar se
 
 **User**
 
-`c:\GitHubLocal\Albertina\last_log.txt` este é o último log da última execução. Analise, faça um breve resumo da execução e corrija erros.
+`c:\GitHubLocal\Albertina\last_log.txt` este é o último log da última execução. Análise, faça um breve resumo da execução e corrijá erros.
 
 **Assistant**
 
@@ -1033,7 +1034,7 @@ Vou apenas afrouxar um pouco os valores do CSS desse painel para sair de `30%` e
 **User**
 
 A extração durou cerca de 15 horas. 
- A ideia é que todas as entidades agora tenha extração incremental, ou seja, que seja extraídas para a base de dados apenas as alterações: ítens novos, alterados ou ítens deletados. É possível implementar desta forma e se for possível, o tempo de extração deve diminuir?
+ A ideia é que todas as entidades agora tenha extração incremental, ou seja, que sejá extraídas para a base de dados apenas as alterações: ítens novos, alterados ou ítens deletados. É possível implementar desta forma e se for possível, o tempo de extração deve diminuir?
 
 **Assistant**
 
@@ -1188,7 +1189,7 @@ Faltam só alguns casos sem sinal de incremental no `rg`, como `company_info`, `
 **Impacto no Tempo**
 - `Baixo ganho` se você mexer só nas dimensões pequenas.
 - `Ganho relevante` se você atacar as entidades grandes e de alto volume.
-- Pelo histórico da execução longa, os maiores candidatos a reduzir horas são `invoices`, `purchase_orders`, `accounts_receivable`, `accounts_payable`, `service_orders`, `shipments` e `separations`.
+- Pelo historico da execução longa, os maiores candidatos a reduzir horas são `invoices`, `purchase_orders`, `accounts_receivable`, `accounts_payable`, `service_orders`, `shipments` e `separations`.
 - Se apenas as entidades pequenas virarem incrementais, eu esperaria ganho modesto.
 - Se as entidades pesadas passarem para um modelo semi-incremental robusto com reconciliação controlada, o tempo total tende a cair de forma perceptível, potencialmente várias horas.
 
@@ -1238,7 +1239,7 @@ Minha idéia e que tenhamos dois tipos de extração:
 Vou avaliar o plano contra o que já existe hoje no backend e no painel, principalmente os pontos de concorrência, tipos de execução e fechamento dos logs com duração.
 
 **Avaliação**
-- O plano é **bom e tecnicamente correto**.
+- O plano é **bom e técnicamente correto**.
 - Ele separa duas necessidades diferentes que hoje estão misturadas: `agilidade operacional` e `confiabilidade de conciliação`.
 - Em termos de arquitetura, eu avalio como o **melhor desenho** para este projeto: uma execução rápida para o dia a dia e uma execução mais pesada para garantir sincronismo completo.
 - A única ressalva é semântica: “absolutamente sincronizado” precisa de uma regra clara de corte temporal, porque a Olist pode continuar mudando enquanto a conciliação está rodando.
@@ -1365,7 +1366,7 @@ Vou avaliar o plano contra o que já existe hoje no backend e no painel, princip
 
 **User**
 
-Sobre a definição "Absolutamente sincronizado", a ideia é que a conciliação seja executada apenas em horários que o Olist não estará sendo utilizado por ninguém, garantindo que não tenha alterações no período. 
+Sobre a definição "Absolutamente sincronizado", a ideia é que a conciliação sejá executada apenas em horários que o Olist não estará sendo utilizado por ninguém, garantindo que não tenha alterações no período. 
  Escreva a especificação técnica detalhada e já implemente.
 
 **Assistant**
@@ -1646,7 +1647,7 @@ Vou validar rapidamente o arquivo alterado para garantir que o ajuste ficou limp
 
 **User**
 
-Analise a execução incrementla em andamento. Ela está pa bastante tempo em execução.
+Análise a execução incrementla em andamento. Ela está pa bastante tempo em execução.
 
 **Assistant**
 
@@ -1917,7 +1918,7 @@ Os diagnósticos ficaram limpos. Vou rodar a suíte Python para garantir que o `
 
 **User**
 
-Revise tudo sobre a execução incremental e corrija ou melhore o que julgar necessário.
+Revise tudo sobre a execução incremental e corrijá ou melhore o que julgar necessário.
 
 **Assistant**
 
@@ -1943,7 +1944,7 @@ A revisão confirmou dois problemas concretos já corrigidos e sobrou um risco e
 **Fluxo**
 ```mermaid
 flowchart LR
-    A[Botao Incremental] --> B{Estrategia do workflow}
+    A[Botao Incremental] --> B{Estratégia do workflow}
     B -->|watermark| C[Usa dataAtualizacao/dataAlteracao]
     B -->|date_range| D[Usa dataInicial/dataFinal com overlap]
     B -->|cooldown| E[Reexecuta so fora da janela local]
@@ -2044,7 +2045,7 @@ Sim, **as próximas incrementais tendem a ler menos e durar menos**.
 **Por quê**
 - `watermark`: entidades como `contacts`, `products`, `orders` e `crm_subjects` passam a buscar só o que mudou desde a última execução bem-sucedida.
 - `cooldown`: entidades mais estáticas podem ser puladas temporariamente, evitando releitura em todo clique.
-- `date_range` com janela curta: entidades como `invoices`, `shipments`, `separations` e `purchase_orders` passam a reler só uma faixa recente, não todo o histórico.
+- `date_range` com janela curta: entidades como `invoices`, `shipments`, `separations` e `purchase_orders` passam a reler só uma faixa recente, não todo o historico.
 
 **Na prática**
 - A **primeira incremental após mudanças grandes** ainda pode ser mais pesada.
@@ -2074,7 +2075,7 @@ Sim, **as próximas incrementais tendem a ler menos e durar menos**.
 
 **User**
 
-Executando uma incremental ainda. Veja se está tudo bem.
+Executando uma incremental ainda. Vejá se está tudo bem.
 
 **Assistant**
 
@@ -2110,7 +2111,7 @@ Quando você quiser, eu acompanho até o fim e te aviso quando `invoices` termin
 **User**
 
 O log da execução está é `c:\GitHubLocal\Albertina\last_log.txt` . 
- Analise e corrija erros.
+ Análise e corrijá erros.
 
 **Assistant**
 
@@ -2119,7 +2120,7 @@ Vou analisar o `last_log.txt`, extrair os erros reais da execução e cruzar com
 Cruzei o `last_log.txt` com o código atual e os dois erros reais continuam sendo os mesmos: `orders` por `400` no filtro incremental e `products` por queda transiente de conexão no Postgres. Vou fechar a evidência no código já aplicado e te devolver o resumo objetivo do que foi corrigido.
 
 **Resumo**
-- Analisei [last_log.txt](file:///c:/GitHubLocal/Albertina/last_log.txt).
+- Análisei [last_log.txt](file:///c:/GitHubLocal/Albertina/last_log.txt).
 - A execução `21eb5742-7b32-43e9-b14c-6bfb898eb350` terminou em `12h 05m 15s`, com `27` entidades previstas, `25` concluídas e `2` com erro ([last_log.txt:L1-L13](file:///c:/GitHubLocal/Albertina/last_log.txt#L1-L13)).
 - Os dois erros reais ficaram concentrados em `products` e `orders` ([last_log.txt:L177-L195](file:///c:/GitHubLocal/Albertina/last_log.txt#L177-L195)).
 - O restante do pipeline fechou normalmente, inclusive `invoices`, que foi a fase mais longa da incremental ([last_log.txt:L217-L225](file:///c:/GitHubLocal/Albertina/last_log.txt#L217-L225)).
@@ -2197,7 +2198,7 @@ Deixe tudo pronto para eu executar a próxima incremental manualmente.
 **User**
 
 O log da execução está é `c:\GitHubLocal\Albertina\last_log.txt` . 
- Analise e corrija erros. 
+ Análise e corrijá erros. 
  A partir de agora será realmente incremental?
 
 **Assistant**
@@ -2253,7 +2254,7 @@ O log da execução está é `c:\GitHubLocal\Albertina\last_log.txt` .
 
 **User**
 
-Altere para quê no quadro histórico, no item da execução, informe o tempo de execução.
+Altere para quê no quadro historico, no item da execução, informe o tempo de execução.
 
 **Assistant**
 
@@ -2291,24 +2292,24 @@ Essa alteração terá efeito apenas nas próximas execuções?
 
 - **Não.**
 - Essa alteração do quadro `Histórico` vale também para as execuções **já registradas**, desde que o item tenha `durationSeconds` ou `durationLabel` no payload retornado pelo backend.
-- Como o frontend só mudou a forma de exibir, ele usa os dados que já vêm do histórico.
+- Como o frontend só mudou a forma de exibir, ele usa os dados que já vêm do historico.
 
 **Na prática**
 - Se o backend já retorna a duração para os itens antigos, eles aparecem imediatamente no `Histórico`.
 - Se algum item antigo não tiver esses campos preenchidos, ele pode aparecer sem duração adequada ou com `--`.
 
 **Para os ajustes de extração**
-- Já as correções do backend para `orders`, `products`, `cooldown` e resiliência **só têm efeito nas próximas execuções**, porque mudam o comportamento do processamento, não o histórico já concluído.
+- Já as correções do backend para `orders`, `products`, `cooldown` e resiliência **só têm efeito nas próximas execuções**, porque mudam o comportamento do processamento, não o historico já concluído.
 
 ---
 
 **User**
 
-ainda não vejo o tempo total nos itens do quadro histórico.
+ainda não vejo o tempo total nos itens do quadro historico.
 
 **Assistant**
 
-Vou verificar o payload do `Histórico` no backend e no frontend, porque o mais provável é que a lista de execuções recentes ainda não esteja recebendo a duração formatada.
+Vou verificar o payload do `Histórico` no backend e no frontend, porque o mais provável é que a lista de execuções recentes ainda não estejá recebendo a duração formatada.
 
 O backend já está enviando duração para o `Histórico`, então o problema tende a ser visual no item da lista. Vou ajustar a renderização para mostrar o tempo total no corpo do card, não só no canto direito.
 
@@ -2339,13 +2340,13 @@ Ajuste aplicado no JSX e no CSS; agora vou validar se não introduzi erro e te e
 
 **Observação**
 - Se a tela já estava aberta, faça um `refresh` completo do frontend ou reinicie o Vite para carregar a alteração mais recente.
-- O texto agora aparece como `Duração: <tempo>` dentro da linha principal do card do histórico.
+- O texto agora aparece como `Duração: <tempo>` dentro da linha principal do card do historico.
 
 ---
 
 **User**
 
-Segue exemplo de item no quadro histórico.
+Segue exemplo de item no quadro historico.
 
 **Assistant**
 
@@ -2354,7 +2355,7 @@ Pelo exemplo, a tela ainda está renderizando o layout antigo, com a duração n
 **Diagnóstico**
 - Pela imagem, o navegador ainda está com o layout antigo do `Histórico`: a duração continua à direita junto da data (`01/07/2026 ... • 46m 57s`).
 - No código atual existe apenas um ponto de renderização desse card, e ele já está com `Duração:` dentro do corpo principal em [App.jsx](file:///c:/GitHubLocal/Albertina/frontend/src/App.jsx#L481-L508).
-- O mapeamento do histórico também já envia `duration` para esse componente em [App.jsx](file:///c:/GitHubLocal/Albertina/frontend/src/App.jsx#L1408-L1434).
+- O mapeamento do historico também já envia `duration` para esse componente em [App.jsx](file:///c:/GitHubLocal/Albertina/frontend/src/App.jsx#L1408-L1434).
 
 **Conclusão**
 - O problema agora não está no código-fonte atual.
@@ -2431,7 +2432,7 @@ Vou validar os diagnósticos e conferir os trechos finais para garantir que a no
 - `App.css` sem erros de diagnóstico.
 
 **Próximo Passo**
-- Atualize a tela e veja se esse formato atende.
+- Atualize a tela e vejá se esse formato atende.
 - Se quiser, eu posso fazer mais um refinamento e deixar esses 5 blocos com largura exatamente uniforme também em telas menores.
 
 ---
@@ -2467,4 +2468,3 @@ Vou só conferir o restante do trecho responsivo, porque o recorte veio antes do
 - Os 5 blocos continuam com largura uniforme dentro da grade em desktop, tablet e mobile, sem ficar “tortos” ou com um bloco visualmente maior que os demais no mesmo breakpoint.
 
 ---
-

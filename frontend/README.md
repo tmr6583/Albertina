@@ -1,6 +1,6 @@
 # Frontend Albertina
 
-Frontend administrativo do projeto Albertina, construído com `React + Vite`. É responsável pela autenticação visual, navegação entre páginas administrativas, consumo da API FastAPI e operação da tela `Conexões` com a integração real da Olist.
+Frontend administrativo do projeto Albertina, construído com `React + Vite`. É responsável pela autenticação visual, navegação entre páginas administrativas, consumo da API FastAPI e operação das telas `Conexões` e `Extração` com a integração real da Olist.
 
 ## Visão Geral
 
@@ -12,7 +12,7 @@ O frontend implementa hoje:
 - tela de administração de usuários
 - modais de criação de usuário e troca de senha
 - tela `Conexões` com operação real da Olist
-- tela `Extração` para disparo e acompanhamento da sincronização Olist -> Supabase
+- tela `Extração` para disparo e acompanhamento dos modos `incremental` e `conciliação`
 - download do log completo por execução a partir do quadro `Histórico`
 - feedback visual padronizado de sucesso e erro
 - botão global `Sair` no cabeçalho autenticado
@@ -132,7 +132,7 @@ Rotas ativas:
 - `/`: login
 - `/usuarios`: administração de usuários
 - `/conexoes`: operação e monitoramento das conexões
-- `/extracao`: extração ERP e acompanhamento da execução
+- `/extração`: extração ERP e acompanhamento da execução
 - `/olist/callback`: rota legada do retorno OAuth
 
 Observações:
@@ -175,11 +175,11 @@ Observações:
 
 ### Extração
 
-- disparo manual da sincronização completa da API pública Olist
+- disparo manual das execuções `Incremental` e `Conciliação`
 - acompanhamento da execução ativa com polling automático mais frequente durante parada
-- exibição da entidade atual, progresso por entidade, velocidade local, ETA local e últimas execuções
+- exibição da entidade atual, progresso por entidade, velocidade local, ETA local, tipo de execução e últimas execuções
 - card executivo da execução com consolidação dos logs operacionais
-- consulta do detalhamento de execuções e download do log completo pelo histórico
+- consulta do detalhamento de execuções e download do log completo pelo historico
 - parada segura por botão `Parar extração`
 - formatação de data e hora em `DD/MM/YYYY HH:MM:SS`
 

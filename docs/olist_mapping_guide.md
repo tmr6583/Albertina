@@ -22,7 +22,7 @@ Versão técnica e navegável da correspondência entre os dados publicados pela
 - [Produtos E Catálogo](#produtos-e-catálogo)
 - [Notas Fiscais](#notas-fiscais)
 - [Contas A Receber E A Pagar](#contas-a-receber-e-a-pagar)
-- [Logística E Estoque](#logística-e-estoque)
+- [Logística E Estoque](#logistica-e-estoque)
 - [Estoque](#estoque)
 - [Expedição](#expedição)
 - [Separação](#separação)
@@ -103,7 +103,7 @@ flowchart LR
 
 | Domínio | Fonte ERP Olist | RAW | CORE | MART |
 |---|---|---|---|---|
-| Empresa | `GET /dados-da-empresa` | `entity_name='company'` | `olist_core.companies` | n/a |
+| Empresa | `GET /info` | `entity_name='company_info'` | `olist_core.companies` | n/a |
 | Usuários | `GET /usuarios` | `entity_name='users'` | `olist_core.olist_users` | n/a |
 | Vendedores | `GET /vendedores` | `entity_name='vendors'` | `olist_core.vendors` | n/a |
 | Contatos | `GET /contatos` | `entity_name='contacts'` | `contacts`, `contact_people`, `addresses`, `contact_types` | `vw_dim_contacts`, `mv_dim_contacts` |
@@ -114,14 +114,14 @@ flowchart LR
 | Serviços | `GET /servicos` | `entity_name='services'` | `services` | n/a |
 | Formas de envio | `GET /formas-envio` | `entity_name='shipping_methods'` | `shipping_methods`, `freight_methods` | n/a |
 | Intermediadores | `GET /intermediadores` | `entity_name='intermediators'` | `intermediators` | n/a |
-| Estoque | `GET /estoque/*` | `entity_name='stock'` | `stock_balances`, `stock_movements` | `vw_fact_inventory`, `mv_fact_inventory` |
+| Estoque | `GET /estoque/*`, `GET /depositos` | `entity_name='products_stock'`, `entity_name='deposits'` | `stock_balances`, `stock_movements`, `deposits` | `vw_fact_inventory`, `mv_fact_inventory` |
 | Pedidos | `GET /pedidos`, `GET /pedidos/{idPedido}` | `entity_name='orders'`, `entity_name='order_detail'` | `orders`, `order_items`, `order_installments`, `order_integrated_payments`, `order_shipping`, `order_markers`, `order_operations` | `vw_fact_orders`, `mv_fact_orders`, `vw_fact_order_items`, `mv_fact_order_items` |
 | Expedição | `Listar agrupamentos de expedição` | `entity_name='shipments'` | `shipment_groups`, `shipments` | n/a |
 | Separação | `GET /separacao/{idSeparacao}` | `entity_name='separations'` | `separations`, `separation_items` | n/a |
-| Notas fiscais | `GET /notas` `[A CONFIRMAR]` | `entity_name='invoices'` | `invoices`, `invoice_items`, `invoice_markers` | n/a |
-| Contas a receber | `GET /contas-a-receber` | `entity_name='accounts_receivable'` | `accounts_receivable`, `accounts_receivable_receipts`, `accounts_receivable_markers` | `vw_fact_receivables`, `mv_fact_receivables` |
-| Contas a pagar | `GET /contas-a-pagar` | `entity_name='accounts_payable'` | `accounts_payable`, `accounts_payable_receipts`, `accounts_payable_markers` | `vw_fact_payables`, `mv_fact_payables` |
-| CRM | `GET /crm/assuntos` `[A CONFIRMAR]` | `entity_name='crm'` | `crm_stages`, `crm_subjects`, `crm_actions`, `crm_notes`, `crm_markers`, `crm_subject_markers` | `vw_crm_pipeline`, `mv_crm_pipeline` |
+| Notas fiscais | `GET /notas`, `GET /notas/{idNota}` | `entity_name='invoices'` | `invoices`, `invoice_items`, `invoice_markers` | n/a |
+| Contas a receber | `GET /contas-receber` | `entity_name='accounts_receivable'` | `accounts_receivable`, `accounts_receivable_receipts`, `accounts_receivable_markers` | `vw_fact_receivables`, `mv_fact_receivables` |
+| Contas a pagar | `GET /contas-pagar` | `entity_name='accounts_payable'` | `accounts_payable`, `accounts_payable_receipts`, `accounts_payable_markers` | `vw_fact_payables`, `mv_fact_payables` |
+| CRM | `GET /crm/estagios`, `GET /crm/assuntos` | `entity_name='crm_stages'`, `entity_name='crm_subjects'` | `crm_stages`, `crm_subjects`, `crm_actions`, `crm_notes`, `crm_markers`, `crm_subject_markers` | `vw_crm_pipeline`, `mv_crm_pipeline` |
 | Ordens de compra | `Listar ordens de compra` | `entity_name='purchase_orders'` | `purchase_orders`, `purchase_order_items`, `purchase_order_markers` | n/a |
 | Ordens de serviço | `Listar ordem de serviço` | `entity_name='service_orders'` | `service_orders`, `service_order_items`, `service_order_markers` | n/a |
 
@@ -152,13 +152,13 @@ Status visual usado:
 
 As entidades abaixo foram expandidas com foco em correspondência clara entre dado da Olist e coluna destino no banco.
 
-- `Contatos`: detalhamento de cadastro e identificação.
+- `Contatos`: detalhamento de cadastro e identificacao.
 - `Pedidos e vendas`: cabeçalho, detalhe e entidades filhas.
 - `Produtos e catálogo`: mapeamento operacional de catálogo.
-- `Notas fiscais`: cabeçalho fiscal, logística e vínculo comercial.
+- `Notas fiscais`: cabeçalho fiscal, logistica e vínculo comercial.
 - `Contas a receber e a pagar`: destino financeiro e leitura analítica.
 - `Estoque`: saldo consolidado e saldos por depósito.
-- `Expedição`: agrupamento, expedições filhas e rastreabilidade logística.
+- `Expedição`: agrupamento, expedições filhas e rastreabilidade logistica.
 - `Separação`: cabeçalho operacional e itens separados.
 - `CRM`: assunto, estágio, ações, anotações e marcadores.
 
@@ -241,9 +241,9 @@ As entidades abaixo foram expandidas com foco em correspondência clara entre da
 | `observacoesInternas` | `GET /pedidos/{idPedido}` | `internal_notes` | `olist_core.orders` | texto livre |
 | `cliente.id` | `GET /pedidos/{idPedido}` | `contact_id` | `olist_core.orders` | resolver por `olist_contact_id` |
 | `vendedor.id` | `GET /pedidos/{idPedido}` | `vendor_id` | `olist_core.orders` | resolver por `olist_vendor_id` |
-| `deposito.id` | `GET /pedidos/{idPedido}` | `deposit_id` | `olist_core.orders` | resolver por `olist_deposit_id` |
+| `depósito.id` | `GET /pedidos/{idPedido}` | `deposit_id` | `olist_core.orders` | resolver por `olist_deposit_id` |
 | `intermediador.id` | `GET /pedidos/{idPedido}` | `intermediator_id` | `olist_core.orders` | resolver por `olist_intermediator_id` |
-| `cliente`, `enderecoEntrega`, `ecommerce`, `transportador`, `naturezaOperacao`, `pagamento` | `GET /pedidos/{idPedido}` | `source_payload` / `raw_attributes` | `olist_core.orders` | preservar subobjetos completos |
+| `cliente`, `enderecoEntrega`, `ecommerce`, `transportador`, `naturezaOperação`, `pagamento` | `GET /pedidos/{idPedido}` | `source_payload` / `raw_attributes` | `olist_core.orders` | preservar subobjetos completos |
 
 ### Mapeamento Das Estruturas Filhas
 
@@ -310,7 +310,7 @@ GET /pedidos?dataAtualizacao=...
 | `precos.precoCusto` | `GET /produtos` | `raw_attributes -> precos.precoCusto` | `olist_core.products` | preservar em JSONB |
 | `precos.precoCustoMedio` | `GET /produtos` | `raw_attributes -> precos.precoCustoMedio` | `olist_core.products` | preservar em JSONB |
 | `estoque.localizacao` | `GET /produtos` | `raw_attributes -> estoque.localizacao` | `olist_core.products` | preservar em JSONB |
-| `tipoVariacao` | `GET /produtos` | `raw_attributes -> tipoVariacao` | `olist_core.products` | base para modelagem de variantes |
+| `tipoVariação` | `GET /produtos` | `raw_attributes -> tipoVariação` | `olist_core.products` | base para modelagem de variantes |
 
 ## Notas Fiscais
 
@@ -360,7 +360,7 @@ GET /pedidos?dataAtualizacao=...
 
 | Item | Contas A Receber | Contas A Pagar |
 |---|---|---|
-| Endpoint | `GET /contas-a-receber` | `GET /contas-a-pagar` |
+| Endpoint | `GET /contas-receber` | `GET /contas-pagar` |
 | Status | `Confirmado` | `Confirmado` |
 | Upsert Key | `(tenant_id, olist_ar_id)` | `(tenant_id, olist_ap_id)` |
 | CORE | `accounts_receivable` | `accounts_payable` |
@@ -418,7 +418,7 @@ GET /pedidos?dataAtualizacao=...
 |---|---|---|---|
 | `GET /formas-envio` | `olist_core.shipping_methods` | Confirmado | carga full de baixa frequência |
 | `GET /formas-frete` `[A CONFIRMAR]` | `olist_core.freight_methods` | Módulo confirmado | validar path final |
-| `GET /depositos` `[A CONFIRMAR]` | `olist_core.deposits` | Módulo confirmado | carga full |
+| `GET /depósitos` `[A CONFIRMAR]` | `olist_core.deposits` | Módulo confirmado | carga full |
 | `GET /estoque/*` | `olist_core.stock_balances`, `olist_core.stock_movements` | Módulo confirmado | webhook + janela corretiva |
 | `Listar agrupamentos de expedição` | `olist_core.shipment_groups` | Confirmado | full + janela |
 | `GET /expedicao/*` `[A CONFIRMAR]` | `olist_core.shipments` | Módulo confirmado | detalhamento por grupo |
@@ -434,7 +434,7 @@ GET /pedidos?dataAtualizacao=...
 | Endpoint principal | `GET /estoque/{idProduto}` |
 | Status | `Confirmado` |
 | Upsert Key | `(tenant_id, product_id, deposit_id)` |
-| RAW | `entity_name='stock'` |
+| RAW | `entity_name='products_stock'`, `entity_name='deposits'` |
 | CORE | `olist_core.stock_balances`, `olist_core.stock_movements`, `olist_core.deposits` |
 | MART | `olist_mart.vw_fact_inventory`, `olist_mart.mv_fact_inventory` |
 
@@ -449,7 +449,7 @@ GET /pedidos?dataAtualizacao=...
 | `saldo` | `GET /estoque/{idProduto}` | `physical_qty` | `olist_core.stock_balances` | saldo consolidado |
 | `reservado` | `GET /estoque/{idProduto}` | `reserved_qty` | `olist_core.stock_balances` | cópia direta |
 | `disponivel` | `GET /estoque/{idProduto}` | `available_qty` | `olist_core.stock_balances` | cópia direta |
-| `localizacao` | `GET /estoque/{idProduto}` | `source_payload -> localizacao` | `olist_core.stock_balances` | preservar em JSONB |
+| `localização` | `GET /estoque/{idProduto}` | `source_payload -> localização` | `olist_core.stock_balances` | preservar em JSONB |
 | `depositos[].id` | `GET /estoque/{idProduto}` | `deposit_id` | `olist_core.stock_balances` | resolver por `olist_deposit_id` |
 | `depositos[].nome` | `GET /estoque/{idProduto}` | `deposit_name` | `olist_core.deposits` | `upsert` da dimensão depósito |
 | `depositos[].desconsiderar` | `GET /estoque/{idProduto}` | `source_payload -> desconsiderar` | `olist_core.deposits` | preservar bruto |
@@ -471,8 +471,8 @@ Payload documentado:
   "saldo": "<number>",
   "reservado": "<number>",
   "disponivel": "<number>",
-  "localizacao": "<string|null>",
-  "depositos": [
+  "localização": "<string|null>",
+  "depósitos": [
     {
       "id": "<integer>",
       "nome": "<string>",
@@ -595,18 +595,18 @@ Linha destino principal:
 | `objOrigem` | `GET /separacao/{idSeparacao}` | `origin_type` | `olist_core.separations` | cópia direta |
 | `situacaoOrigem` | `GET /separacao/{idSeparacao}` | `source_payload -> situacaoOrigem` | `olist_core.separations` | preservar em JSONB |
 | `dataCriacao` | `GET /separacao/{idSeparacao}` | `issued_at` | `olist_core.separations` | converter para `TIMESTAMPTZ` |
-| `dataSeparacao` | `GET /separacao/{idSeparacao}` | `source_payload -> dataSeparacao` | `olist_core.separations` | preservar em JSONB |
+| `dataSeparação` | `GET /separacao/{idSeparacao}` | `source_payload -> dataSeparação` | `olist_core.separations` | preservar em JSONB |
 | `dataCheckout` | `GET /separacao/{idSeparacao}` | `source_payload -> dataCheckout` | `olist_core.separations` | preservar em JSONB |
 | `cliente.id` | `GET /separacao/{idSeparacao}` | `source_payload -> cliente.id` | `olist_core.separations` | preservar referência do cliente |
 | `venda.id` | `GET /separacao/{idSeparacao}` | `order_id` | `olist_core.separations` | resolver por `olist_order_id` |
 | `notaFiscal.id` | `GET /separacao/{idSeparacao}` | `source_payload -> notaFiscal.id` | `olist_core.separations` | preservar referência fiscal |
-| `formaEnvio.id` | `GET /separacao/{idSeparacao}` | `source_payload -> formaEnvio.id` | `olist_core.separations` | preservar referência logística |
+| `formaEnvio.id` | `GET /separacao/{idSeparacao}` | `source_payload -> formaEnvio.id` | `olist_core.separations` | preservar referência logistica |
 | `volumes` | `GET /separacao/{idSeparacao}` | `source_payload -> volumes` | `olist_core.separations` | preservar em JSONB |
 | `itens[].produto.id` | `GET /separacao/{idSeparacao}` | `product_id` | `olist_core.separation_items` | resolver por `olist_product_id` |
 | `itens[].produto.sku` | `GET /separacao/{idSeparacao}` | `source_payload -> produto.sku` | `olist_core.separation_items` | preservar em JSONB |
 | `itens[].produto.descricao` | `GET /separacao/{idSeparacao}` | `source_payload -> produto.descricao` | `olist_core.separation_items` | preservar em JSONB |
 | `itens[].quantidade` | `GET /separacao/{idSeparacao}` | `quantity` | `olist_core.separation_items` | numérico |
-| `itens[].localizacao` | `GET /separacao/{idSeparacao}` | `source_payload -> localizacao` | `olist_core.separation_items` | preservar em JSONB |
+| `itens[].localização` | `GET /separacao/{idSeparacao}` | `source_payload -> localização` | `olist_core.separation_items` | preservar em JSONB |
 | `itens[].infoAdicional` | `GET /separacao/{idSeparacao}` | `source_payload -> infoAdicional` | `olist_core.separation_items` | preservar em JSONB |
 
 ### Exemplo Estrutural De Payload -> Linha Destino
@@ -626,7 +626,7 @@ Linha destino principal:
         "descricao": "<string|null>"
       },
       "quantidade": "<number>",
-      "localizacao": "<string>",
+      "localização": "<string>",
       "infoAdicional": "<string>"
     }
   ]
@@ -654,7 +654,7 @@ Linha destino principal:
 | Endpoint de detalhe | `GET /crm/assuntos/{idAssunto}` |
 | Endpoints filhos | `GET /crm/estagios`, `GET /crm/assuntos/{idAssunto}/acoes`, `GET /crm/assuntos/{idAssunto}/anotacoes`, `GET /crm/assuntos/{idAssunto}/marcadores` |
 | Status | `Confirmado` |
-| RAW | `entity_name='crm'` |
+| RAW | `entity_name='crm_stages'`, `entity_name='crm_subjects'` |
 | CORE | `crm_stages`, `crm_subjects`, `crm_actions`, `crm_notes`, `crm_markers`, `crm_subject_markers` |
 | MART | `olist_mart.vw_crm_pipeline`, `olist_mart.mv_crm_pipeline` |
 
@@ -666,27 +666,27 @@ Linha destino principal:
 | `assunto` | `GET /crm/assuntos` | `subject_title` | `olist_core.crm_subjects` | cópia direta |
 | `cliente.id` | `GET /crm/assuntos` | `contact_id` | `olist_core.crm_subjects` | resolver por `olist_contact_id` |
 | `cliente.statusCrm` | `GET /crm/assuntos` | `subject_status` | `olist_core.crm_subjects` | cópia direta |
-| `estagio.id` | `GET /crm/assuntos` | `crm_stage_id` | `olist_core.crm_subjects` | resolver por `olist_crm_stage_id` |
+| `estágio.id` | `GET /crm/assuntos` | `crm_stage_id` | `olist_core.crm_subjects` | resolver por `olist_crm_stage_id` |
 | `estrela` | `GET /crm/assuntos` | `is_starred` | `olist_core.crm_subjects` | boolean |
 | `arquivado` | `GET /crm/assuntos` | `is_archived` | `olist_core.crm_subjects` | boolean |
 | `data` | `GET /crm/assuntos` | `raw_attributes -> data` | `olist_core.crm_subjects` | preservar em JSONB |
 | `dataAtualizacao` | `GET /crm/assuntos` | `source_updated_at` | `olist_core.crm_subjects` | watermark candidato |
 | `totalAcoes` | `GET /crm/assuntos` | `raw_attributes -> totalAcoes` | `olist_core.crm_subjects` | preservar em JSONB |
 | `totalAnotacoes` | `GET /crm/assuntos` | `raw_attributes -> totalAnotacoes` | `olist_core.crm_subjects` | preservar em JSONB |
-| `proximaAcao.descricao` | `GET /crm/assuntos` | `raw_attributes -> proximaAcao.descricao` | `olist_core.crm_subjects` | preservar em JSONB |
-| `items.id` | `GET /crm/estagios` | `olist_crm_stage_id` | `olist_core.crm_stages` | chave natural externa |
-| `items.descricao` | `GET /crm/estagios` | `stage_name` | `olist_core.crm_stages` | cópia direta |
-| `items.ordem` | `GET /crm/estagios` | `pipeline_position` | `olist_core.crm_stages` | cópia direta |
+| `próximaAção.descricao` | `GET /crm/assuntos` | `raw_attributes -> próximaAção.descricao` | `olist_core.crm_subjects` | preservar em JSONB |
+| `items.id` | `GET /crm/estágios` | `olist_crm_stage_id` | `olist_core.crm_stages` | chave natural externa |
+| `items.descricao` | `GET /crm/estágios` | `stage_name` | `olist_core.crm_stages` | cópia direta |
+| `items.ordem` | `GET /crm/estágios` | `pipeline_position` | `olist_core.crm_stages` | cópia direta |
 | `itens[].id` | `GET /crm/assuntos/{idAssunto}/acoes` | `olist_action_id` | `olist_core.crm_actions` | chave natural externa |
 | `itens[].descricao` | `GET /crm/assuntos/{idAssunto}/acoes` | `action_type` | `olist_core.crm_actions` | preservar descrição operacional |
 | `itens[].dataCriacao` | `GET /crm/assuntos/{idAssunto}/acoes` | `created_at` `[A CONFIRMAR uso direto]` | `olist_core.crm_actions` | preferir manter em `source_payload` |
 | `itens[].tipoData` | `GET /crm/assuntos/{idAssunto}/acoes` | `source_payload -> tipoData` | `olist_core.crm_actions` | preservar em JSONB |
 | `itens[].data` | `GET /crm/assuntos/{idAssunto}/acoes` | `scheduled_at` | `olist_core.crm_actions` | conversão para `TIMESTAMPTZ` |
-| `itens[].acaoConcluida` | `GET /crm/assuntos/{idAssunto}/acoes` | `action_status` | `olist_core.crm_actions` | derivar `concluida/pendente` |
+| `itens[].açãoConcluida` | `GET /crm/assuntos/{idAssunto}/acoes` | `action_status` | `olist_core.crm_actions` | derivar `concluida/pendente` |
 | `itens[].dataConcluida` | `GET /crm/assuntos/{idAssunto}/acoes` | `completed_at` | `olist_core.crm_actions` | conversão para `TIMESTAMPTZ` |
 | `itens[].id` | `GET /crm/assuntos/{idAssunto}/anotacoes` | `olist_note_id` | `olist_core.crm_notes` | chave natural externa |
 | `itens[].data` | `GET /crm/assuntos/{idAssunto}/anotacoes` | `source_payload -> data` | `olist_core.crm_notes` | preservar em JSONB |
-| `itens[].anotacao` | `GET /crm/assuntos/{idAssunto}/anotacoes` | `note_body` | `olist_core.crm_notes` | cópia direta |
+| `itens[].anotação` | `GET /crm/assuntos/{idAssunto}/anotacoes` | `note_body` | `olist_core.crm_notes` | cópia direta |
 | `items.descricao` | `GET /crm/assuntos/{idAssunto}/marcadores` | `marker_description` | `olist_core.crm_markers` | chave semântica por tenant |
 | `items.cor` | `GET /crm/assuntos/{idAssunto}/marcadores` | `color_hex` | `olist_core.crm_markers` | cópia direta |
 
@@ -700,7 +700,7 @@ Linha destino principal:
     "id": "<integer>",
     "statusCrm": "<string|null>"
   },
-  "estagio": {
+  "estágio": {
     "id": "<integer|null>",
     "descricao": "<string|null>"
   },
@@ -717,7 +717,7 @@ Linha destino principal:
 | `olist_subject_id` | `id` |
 | `subject_title` | `assunto` |
 | `contact_id` | `cliente.id` resolvido |
-| `crm_stage_id` | `estagio.id` resolvido |
+| `crm_stage_id` | `estágio.id` resolvido |
 | `is_starred` | `estrela` |
 | `is_archived` | `arquivado` |
 | `source_updated_at` | `dataAtualizacao` |
@@ -727,7 +727,7 @@ Linha destino principal:
 | Fonte ERP | Tabela Destino | Status | Observação |
 |---|---|---|---|
 | `GET /crm/assuntos` `[A CONFIRMAR]` | `olist_core.crm_subjects` | Módulo confirmado | pipeline comercial |
-| `GET /crm/estagios` `[A CONFIRMAR]` | `olist_core.crm_stages` | Módulo confirmado | funil |
+| `GET /crm/estágios` `[A CONFIRMAR]` | `olist_core.crm_stages` | Módulo confirmado | funil |
 | `GET /crm/assuntos/{id}/acoes` `[A CONFIRMAR]` | `olist_core.crm_actions` | Módulo confirmado | atividades |
 | `GET /crm/assuntos/{id}/anotacoes` `[A CONFIRMAR]` | `olist_core.crm_notes` | Módulo confirmado | notas |
 | `GET /crm/assuntos/{id}/marcadores` `[A CONFIRMAR]` | `olist_core.crm_markers`, `olist_core.crm_subject_markers` | Módulo confirmado | tags do pipeline |

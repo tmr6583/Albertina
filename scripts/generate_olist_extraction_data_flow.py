@@ -62,12 +62,12 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
     },
     "users": {
         "dominio": "Cadastros",
-        "descricao": "Usuarios do ERP usados em operacoes e separacao.",
+        "descricao": "Usuários do ERP usados em operações e separação.",
         "atual": ["olist_raw.api_payloads (entity_name='users')", "olist_admin.sync_runs"],
         "core": ["olist_core.olist_users"],
         "mart": [],
         "cobertura": "RAW ativo, CORE modelado",
-        "observacoes": "Usado tambem como referencia para packed_by_user_id.",
+        "observacoes": "Usado também como referência para packed_by_olist_user_id.",
     },
     "vendors": {
         "dominio": "Cadastros",
@@ -79,8 +79,8 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "observacoes": "Relacionamento confirmado com contatos e pedidos.",
     },
     "brands": {
-        "dominio": "Catalogo",
-        "descricao": "Marcas do catalogo de produtos.",
+        "dominio": "Catálogo",
+        "descricao": "Marcas do catálogo de produtos.",
         "atual": ["olist_raw.api_payloads (entity_name='brands')", "olist_admin.sync_runs"],
         "core": ["olist_core.brands"],
         "mart": [],
@@ -88,13 +88,13 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "observacoes": "Dimensao auxiliar de produtos.",
     },
     "categories": {
-        "dominio": "Catalogo",
-        "descricao": "Arvore de categorias e hierarquia do catalogo.",
+        "dominio": "Catálogo",
+        "descricao": "Árvore de categorias e hierarquia do catálogo.",
         "atual": ["olist_raw.api_payloads (entity_name='categories')", "olist_admin.sync_runs"],
         "core": ["olist_core.categories"],
         "mart": [],
         "cobertura": "RAW ativo, CORE modelado",
-        "observacoes": "Inclui listagem em arvore e detalhe por categoria.",
+        "observacoes": "Inclui listagem em árvore e detalhe por categoria.",
     },
     "revenue_expense_categories": {
         "dominio": "Financeiro",
@@ -107,7 +107,7 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
     },
     "contacts": {
         "dominio": "Cadastros",
-        "descricao": "Clientes, fornecedores, tipos, pessoas e enderecos.",
+        "descricao": "Clientes, fornecedores, tipos, pessoas e endereços.",
         "atual": [
             "olist_raw.api_payloads (entity_name='contacts')",
             "olist_admin.sync_runs",
@@ -117,7 +117,7 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "core": ["olist_core.contacts", "olist_core.contact_people", "olist_core.addresses", "olist_core.contact_types"],
         "mart": ["olist_mart.vw_dim_contacts", "olist_mart.mv_dim_contacts"],
         "cobertura": "RAW ativo, CORE/MART modelados",
-        "observacoes": "Workflow pesado; pagina curta e watermark por dataAtualizacao.",
+        "observacoes": "Workflow pesado; página curta e watermark por dataAtualizacao.",
     },
     "payment_methods": {
         "dominio": "Financeiro",
@@ -138,17 +138,17 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "observacoes": "Relaciona pedidos e titulos financeiros.",
     },
     "shipping_methods": {
-        "dominio": "Logistica",
-        "descricao": "Formas de envio e referencias de frete.",
+        "dominio": "Logística",
+        "descricao": "Formas de envio e referências de frete.",
         "atual": ["olist_raw.api_payloads (entity_name='shipping_methods')", "olist_admin.sync_runs"],
         "core": ["olist_core.shipping_methods", "olist_core.freight_methods [A CONFIRMAR path dedicado]"],
         "mart": [],
         "cobertura": "RAW ativo, CORE parcial",
-        "observacoes": "Guia tecnico confirma freight_methods, mas o path final segue [A CONFIRMAR].",
+        "observacoes": "O modelo confirma freight_methods, mas o path dedicado ainda segue parcial.",
     },
     "deposits": {
-        "dominio": "Logistica",
-        "descricao": "Depositos e locais fisicos de estoque.",
+        "dominio": "Logística",
+        "descricao": "Depósitos e locais físicos de estoque.",
         "atual": ["olist_raw.api_payloads (entity_name='deposits')", "olist_admin.sync_runs"],
         "core": ["olist_core.deposits"],
         "mart": ["olist_mart.vw_fact_inventory", "olist_mart.mv_fact_inventory"],
@@ -165,35 +165,35 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "observacoes": "Dimensao auxiliar comercial.",
     },
     "price_lists": {
-        "dominio": "Catalogo",
-        "descricao": "Listas de preco e itens precificados.",
+        "dominio": "Catálogo",
+        "descricao": "Listas de preço e itens precificados.",
         "atual": ["olist_raw.api_payloads (entity_name='price_lists')", "olist_admin.sync_runs"],
         "core": ["olist_core.price_lists", "olist_core.price_list_items"],
         "mart": [],
         "cobertura": "RAW ativo, CORE modelado",
-        "observacoes": "Precificacao desacoplada do produto.",
+        "observacoes": "Precificação desacoplada do produto.",
     },
     "services": {
-        "dominio": "Operacoes",
-        "descricao": "Catalogo de servicos.",
+        "dominio": "Operações",
+        "descricao": "Catálogo de serviços.",
         "atual": ["olist_raw.api_payloads (entity_name='services')", "olist_admin.sync_runs"],
         "core": ["olist_core.services"],
         "mart": ["olist_mart.vw_fact_order_items", "olist_mart.mv_fact_order_items"],
         "cobertura": "RAW ativo, CORE/MART modelados",
-        "observacoes": "Usado em pedidos e ordens de servico.",
+        "observacoes": "Usado em pedidos e ordens de serviço.",
     },
     "tag_groups": {
-        "dominio": "Catalogo",
+        "dominio": "Catálogo",
         "descricao": "Grupos de tags de produtos.",
         "atual": ["olist_raw.api_payloads (entity_name='tag_groups')", "olist_admin.sync_runs"],
         "core": ["olist_core.tag_groups"],
         "mart": [],
         "cobertura": "RAW ativo, CORE modelado",
-        "observacoes": "Base para organizacao de tags do catalogo.",
+        "observacoes": "Base para organização de tags do catálogo.",
     },
     "product_tags": {
-        "dominio": "Catalogo",
-        "descricao": "Tags e vinculos com produtos.",
+        "dominio": "Catálogo",
+        "descricao": "Tags e vínculos com produtos.",
         "atual": ["olist_raw.api_payloads (entity_name='product_tags')", "olist_admin.sync_runs"],
         "core": ["olist_core.product_tags", "olist_core.product_tag_links"],
         "mart": [],
@@ -201,8 +201,8 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "observacoes": "Links finais dependem de tags por produto.",
     },
     "products": {
-        "dominio": "Catalogo",
-        "descricao": "Produtos, custos, kits, fabricacao, tags e estoque.",
+        "dominio": "Catálogo",
+        "descricao": "Produtos, custos, kits, fabricação, tags e estoque.",
         "atual": [
             "olist_raw.api_payloads (entity_name='products')",
             "olist_admin.sync_runs",
@@ -226,11 +226,11 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "core": ["olist_core.orders", "olist_core.order_items", "olist_core.order_installments", "olist_core.order_integrated_payments", "olist_core.order_shipping", "olist_core.order_markers", "olist_core.order_operations"],
         "mart": ["olist_mart.vw_fact_orders", "olist_mart.mv_fact_orders", "olist_mart.vw_fact_order_items", "olist_mart.mv_fact_order_items"],
         "cobertura": "RAW ativo, CORE/MART modelados",
-        "observacoes": "Entidade central do dominio comercial.",
+        "observacoes": "Entidade central do domínio comercial.",
     },
     "accounts_receivable": {
         "dominio": "Financeiro",
-        "descricao": "Titulos a receber, recebimentos e marcadores.",
+        "descricao": "Títulos a receber, recebimentos e marcadores.",
         "atual": [
             "olist_raw.api_payloads (entity_name='accounts_receivable')",
             "olist_admin.sync_runs",
@@ -240,11 +240,11 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "core": ["olist_core.accounts_receivable", "olist_core.accounts_receivable_receipts", "olist_core.accounts_receivable_markers"],
         "mart": ["olist_mart.vw_fact_receivables", "olist_mart.mv_fact_receivables"],
         "cobertura": "RAW ativo, CORE/MART modelados",
-        "observacoes": "Incremental por janela de emissao.",
+        "observacoes": "Incremental por janela de emissão.",
     },
     "accounts_payable": {
         "dominio": "Financeiro",
-        "descricao": "Titulos a pagar, pagamentos e marcadores.",
+        "descricao": "Títulos a pagar, pagamentos e marcadores.",
         "atual": [
             "olist_raw.api_payloads (entity_name='accounts_payable')",
             "olist_admin.sync_runs",
@@ -254,7 +254,7 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "core": ["olist_core.accounts_payable", "olist_core.accounts_payable_receipts", "olist_core.accounts_payable_markers"],
         "mart": ["olist_mart.vw_fact_payables", "olist_mart.mv_fact_payables"],
         "cobertura": "RAW ativo, CORE/MART modelados",
-        "observacoes": "Incremental por janela de emissao.",
+        "observacoes": "Incremental por janela de emissão.",
     },
     "invoices": {
         "dominio": "Fiscal",
@@ -266,8 +266,8 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "observacoes": "Parte dos detalhes complementares segue em payload bruto.",
     },
     "shipments": {
-        "dominio": "Logistica",
-        "descricao": "Agrupamentos de expedicao, expedicoes e etiquetas.",
+        "dominio": "Logística",
+        "descricao": "Agrupamentos de expedição, expedições e etiquetas.",
         "atual": ["olist_raw.api_payloads (entity_name='shipments')", "olist_admin.sync_runs", "olist_admin.sync_run_logs"],
         "core": ["olist_core.shipment_groups", "olist_core.shipments"],
         "mart": [],
@@ -275,8 +275,8 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "observacoes": "Relaciona pedidos com rastreio e forma de frete.",
     },
     "separations": {
-        "dominio": "Logistica",
-        "descricao": "Separacoes e itens preparados para expedicao.",
+        "dominio": "Logística",
+        "descricao": "Separações e itens preparados para expedição.",
         "atual": ["olist_raw.api_payloads (entity_name='separations')", "olist_admin.sync_runs", "olist_admin.sync_run_logs"],
         "core": ["olist_core.separations", "olist_core.separation_items"],
         "mart": [],
@@ -285,16 +285,16 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
     },
     "crm_stages": {
         "dominio": "CRM",
-        "descricao": "Estagios do pipeline comercial.",
+        "descricao": "Estágios do pipeline comercial.",
         "atual": ["olist_raw.api_payloads (entity_name='crm_stages')", "olist_admin.sync_runs"],
         "core": ["olist_core.crm_stages"],
         "mart": ["olist_mart.vw_crm_pipeline", "olist_mart.mv_crm_pipeline"],
         "cobertura": "RAW ativo, CORE/MART modelados",
-        "observacoes": "Dimensao de apoio para assuntos do CRM.",
+        "observacoes": "Dimensão de apoio para assuntos do CRM.",
     },
     "crm_subjects": {
         "dominio": "CRM",
-        "descricao": "Assuntos, acoes, anotacoes e marcadores do funil comercial.",
+        "descricao": "Assuntos, ações, anotações e marcadores do funil comercial.",
         "atual": [
             "olist_raw.api_payloads (entity_name='crm_subjects')",
             "olist_admin.sync_runs",
@@ -307,22 +307,22 @@ WORKFLOW_META: dict[str, dict[str, object]] = {
         "observacoes": "Incremental por dataAtualizacao nos assuntos.",
     },
     "purchase_orders": {
-        "dominio": "Operacoes",
+        "dominio": "Operações",
         "descricao": "Ordens de compra, itens e marcadores.",
         "atual": ["olist_raw.api_payloads (entity_name='purchase_orders')", "olist_admin.sync_runs", "olist_admin.sync_run_logs"],
         "core": ["olist_core.purchase_orders", "olist_core.purchase_order_items", "olist_core.purchase_order_markers"],
         "mart": [],
         "cobertura": "RAW ativo, CORE modelado",
-        "observacoes": "Cabecalho operacional de compras.",
+        "observacoes": "Cabeçalho operacional de compras.",
     },
     "service_orders": {
-        "dominio": "Operacoes",
-        "descricao": "Ordens de servico, itens e marcadores.",
+        "dominio": "Operações",
+        "descricao": "Ordens de serviço, itens e marcadores.",
         "atual": ["olist_raw.api_payloads (entity_name='service_orders')", "olist_admin.sync_runs", "olist_admin.sync_run_logs"],
         "core": ["olist_core.service_orders", "olist_core.service_order_items", "olist_core.service_order_markers"],
         "mart": [],
         "cobertura": "RAW ativo, CORE modelado",
-        "observacoes": "Cabecalho operacional de servicos.",
+        "observacoes": "Cabeçalho operacional de serviços.",
     },
 }
 
@@ -616,7 +616,7 @@ def build_html() -> str:
           <h1>Fluxo de dados da extração Olist para o Supabase</h1>
           <p>
             Documento visual amplo da extração Olist no projeto Albertina. Ele mostra a trilha operacional entre UI, API,
-            controle incremental, camada RAW, destino relacional modelado em CORE e consumo analítico em MART. A leitura deixa
+            controle de execução, camada RAW, destino relacional modelado em CORE e consumo analítico em MART. A leitura deixa
             explícito onde cada dataset do ERP está hoje e para onde ele foi desenhado no schema do Supabase.
           </p>
         </div>
@@ -646,8 +646,8 @@ def build_html() -> str:
         </div>
       </div>
       <div class="grid flow-grid">
-        <article class="card flow-card"><div class="flow-step">01 · Disparo</div><h3>UI e API</h3><p>O menu <code>/extracao</code> aciona <code>POST /api/extraction/run</code>, faz polling de <code>/api/extraction/overview</code>, permite parada segura em <code>/api/extraction/stop</code> e baixa o log completo pelo histórico com <code>/api/extraction/executions/{{execution_id}}</code>.</p></article>
-        <article class="card flow-card"><div class="flow-step">02 · Controle</div><h3>Execução</h3><p>O backend registra andamento, logs e checkpoint incremental em <code>olist_admin.sync_runs</code>, <code>sync_run_logs</code> e <code>sync_watermarks</code>.</p></article>
+        <article class="card flow-card"><div class="flow-step">01 · Disparo</div><h3>UI e API</h3><p>O menu <code>/extracao</code> aciona <code>POST /api/extraction/run</code>, faz polling de <code>/api/extraction/overview</code>, permite parada segura em <code>/api/extraction/stop</code> e baixa o log completo pelo historico com <code>/api/extraction/executions/{{execution_id}}</code>.</p></article>
+        <article class="card flow-card"><div class="flow-step">02 · Controle</div><h3>Execução</h3><p>O backend registra andamento, logs, `watermarks` e coordenação global em <code>olist_admin.sync_runs</code>, <code>sync_run_logs</code>, <code>sync_watermarks</code> e <code>execution_control</code>.</p></article>
         <article class="card flow-card"><div class="flow-step">03 · RAW</div><h3>Payload integral</h3><p>Cada resposta confirmada da API pública entra em <code>olist_raw.api_payloads</code> com payload JSON completo, ids externos e timestamp de origem.</p></article>
         <article class="card flow-card"><div class="flow-step">04 · CORE</div><h3>Modelo relacional</h3><p>As migrations já definem o destino em <code>olist_core</code> para cadastros, vendas, logística, fiscal, financeiro, CRM e operações.</p></article>
         <article class="card flow-card"><div class="flow-step">05 · MART</div><h3>Analytics</h3><p>Views e materialized views em <code>olist_mart</code> consolidam fatos e dimensões para análise e consumo futuro.</p></article>

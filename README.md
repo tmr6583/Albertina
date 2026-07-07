@@ -12,13 +12,13 @@ Estado atual da aplicação:
 - auditoria operacional persistida
 - tela `Conexões` com operação real da Olist
 - menu `Extração` com disparo da sincronização ERP Olist -> Supabase
-- acompanhamento operacional da extração com entidade atual, ETA local, card executivo de logs, histórico clicável e parada segura
+- acompanhamento operacional da extração com entidade atual, ETA local, card executivo de logs, historico clicável e parada segura
 - OAuth real da Olist já implementado
 - persistência validada em `PostgreSQL / Supabase`
 - fallback local em `SQLite`
 - interface em `pt-BR`, com identidade visual padronizada
 
-O objetivo do projeto é servir como base administrativa e operacional para a futura sincronização de entidades reais do ERP Olist com persistência estruturada em `PostgreSQL / Supabase`.
+O projeto já opera como base administrativa e operacional para sincronização do ERP Olist com persistência estruturada em `PostgreSQL / Supabase`, combinando autenticação, OAuth, extração assistida por UI/API, worker dedicado e documentação técnica de apoio.
 
 ## Funcionalidades Implementadas
 
@@ -48,12 +48,12 @@ Recursos já disponíveis no repositório:
 
 Pendências atuais de evolução:
 
-- sincronização real de entidades ERP
-- modelagem de domínio operacional/analítica
-- checkpoints de sincronização
-- jobs manuais e incrementais
+- expansão da carga relacional `olist_core.*` a partir do RAW já persistido
+- refinamento da cobertura documental campo a campo em entidades ainda parciais
+- endurecimento de segurança para segredos OAuth em repouso
+- observabilidade mais ampla para integrações, worker e refresh analítico
 - criptografia dedicada para segredos OAuth em repouso
-- observabilidade mais ampla para integrações e cargas
+- automação adicional de publicação e operação fora do ambiente local
 
 ## Arquitetura
 
@@ -107,35 +107,56 @@ Segurança atualmente implementada:
 ```text
 Albertina/
 |-- README.md
+|-- Albertina.bat
 |-- backend/
 |   |-- app.py
+|   |-- bootstrap_supabase.py
 |   |-- requirements.txt
-|   `-- data/
-|       `-- albertina.db
+|   |-- logs/
+|   |-- tests/
+|   `-- olist_extraction/
+|       |-- README.md
+|       |-- catalog.py
+|       |-- cli.py
+|       |-- extract.py
+|       |-- load.py
+|       `-- service.py
+|-- docs/
+|   |-- README.md
+|   |-- extraction-modes-spec.md
+|   |-- memory_snapshot_2026-07-07.md
+|   |-- olist_etl_guide.md
+|   |-- olist_erp_der.md
+|   |-- olist_extraction_data_flow.html
+|   |-- olist_mapping_guide.md
+|   |-- olist_mapping_guide_executive.md
+|   |-- project_memory_knowledge.md
+|   `-- olist_mapping_matrix_consolidated.md
 |-- files/
 |   |-- Albertina.png
-|   |-- Cofre.txt
+|   |-- Data_Map.html
 |   |-- Logo_Azul.jpg
-|-- supabase/
-|   `-- migrations/
-|       |-- 20260625182500_init_albertina_auth.sql
-|       |-- 20260625202000_add_olist_settings.sql
-|       `-- 20260625214000_oauth_real_and_connection_logs.sql
-`-- frontend/
-    |-- README.md
-    |-- index.html
-    |-- package.json
-    |-- vite.config.js
-    |-- .env.local
-    |-- public/
-    |   |-- albertina.png
-    |   `-- logo-azul.jpg
-    `-- src/
-        |-- App.css
-        |-- App.jsx
-        |-- api.js
-        |-- index.css
-        `-- main.jsx
+|   `-- Cofre.txt
+|-- frontend/
+|   |-- README.md
+|   |-- package.json
+|   |-- vite.config.js
+|   |-- public/
+|   `-- src/
+|-- scripts/
+|   |-- generate_olist_extraction_data_flow.py
+|   `-- start_extraction_direct.py
+`-- supabase/
+    `-- migrations/
+        |-- 20260625182500_init_albertina_auth.sql
+        |-- 20260625202000_add_olist_settings.sql
+        |-- 20260625214000_oauth_real_and_connection_logs.sql
+        |-- 20260626103000_olist_erp_foundation.sql
+        |-- 20260626104000_olist_erp_master_data.sql
+        |-- 20260626105000_olist_erp_sales_and_logistics.sql
+        |-- 20260626110000_olist_erp_finance_and_operations.sql
+        |-- 20260626111000_olist_erp_mart_views.sql
+        `-- 20260626112000_olist_erp_mart_materialized_views.sql
 ```
 
 ## Interface Atual
@@ -145,7 +166,7 @@ Rotas do frontend:
 - `/`: login
 - `/usuarios`: administração de usuários
 - `/conexoes`: operação e monitoramento das conexões
-- `/extracao`: execução e acompanhamento da extração Olist
+- `/extração`: execução e acompanhamento da extração Olist
 - `/olist/callback`: rota legada do retorno OAuth no frontend
 
 Características visuais e comportamentais:
@@ -160,6 +181,16 @@ Características visuais e comportamentais:
 - datas exibidas em `DD/MM/YYYY HH:MM:SS`
 - modais para criação de usuário e troca de senha
 - feedback visual padronizado para sucesso e erro
+
+## Base Documental
+
+O diretório `docs/` passa a concentrar a base documental oficial do projeto.
+
+Referências principais:
+
+- índice central da documentação: [README.md](file:///c:/GitHubLocal/Albertina/docs/README.md)
+- memória e conhecimento consolidado: [project_memory_knowledge.md](file:///c:/GitHubLocal/Albertina/docs/project_memory_knowledge.md)
+- mapa visual ERP x banco: [Data_Map.html](file:///c:/GitHubLocal/Albertina/files/Data_Map.html)
 
 ## Backend
 
@@ -233,13 +264,13 @@ Exemplo:
 python backend/bootstrap_supabase.py
 ```
 
-Validacao sem aplicar:
+Validação sem aplicar:
 
 ```bash
 python backend/bootstrap_supabase.py --dry-run
 ```
 
-Views analiticas criadas em `olist_mart`:
+Views analíticas criadas em `olist_mart`:
 
 - `vw_dim_contacts`
 - `vw_dim_products`
@@ -250,7 +281,7 @@ Views analiticas criadas em `olist_mart`:
 - `vw_fact_inventory`
 - `vw_crm_pipeline`
 
-Materialized views analiticas criadas em `olist_mart`:
+Materialized views analíticas criadas em `olist_mart`:
 
 - `mv_dim_contacts`
 - `mv_dim_products`
@@ -261,11 +292,11 @@ Materialized views analiticas criadas em `olist_mart`:
 - `mv_fact_inventory`
 - `mv_crm_pipeline`
 
-Estrategia de refresh:
+Estratégia de refresh:
 
 - refresh padrao em lote pela funcao `select olist_admin.refresh_olist_mart_views(false);`
 - refresh padrao unitario pela funcao `select olist_admin.refresh_olist_mart_view('mv_fact_orders', false);`
-- refresh concorrente apenas manual, fora de funcao/transacao, por exemplo:
+- refresh concorrente apenas manual, fora de funcao/transação, por exemplo:
 
 ```sql
 REFRESH MATERIALIZED VIEW CONCURRENTLY olist_mart.mv_dim_contacts;
@@ -514,8 +545,8 @@ python scripts/reset_olist_runtime.py --dry-run
 Referências oficiais:
 
 - `https://api-docs.erp.olist.com/api-reference/`
-- `https://api-docs.erp.olist.com/documentacao/comecando/autenticacao`
-- `https://api-docs.erp.olist.com/documentacao/comecando/limites-de-consulta`
+- `https://api-docs.erp.olist.com/documentação/comecando/autenticação`
+- `https://api-docs.erp.olist.com/documentação/comecando/limites-de-consulta`
 
 Premissas confirmadas no projeto:
 
@@ -593,12 +624,12 @@ Limitações atuais:
 
 Próximos passos recomendados:
 
-1. mover segredos locais para `.env`
-2. criptografar segredos OAuth em repouso
-3. ampliar o cliente HTTP da Olist para entidades reais
-4. modelar as primeiras entidades do ERP em PostgreSQL/Supabase
-5. implementar sincronização full e incremental
-6. ampliar observabilidade de jobs e integrações
+1. ampliar a carga normalizada de `olist_raw.api_payloads` para `olist_core.*` nas entidades já extraídas
+2. consolidar migrations versionadas para colunas complementares atualmente garantidas pelo bootstrap runtime
+3. criptografar segredos OAuth em repouso
+4. ampliar observabilidade de worker, locks, heartbeat e refresh analítico
+5. evoluir operação para ambientes não locais com configuração segura e publicação controlada
+6. manter documentação técnica e executiva sincronizada com catálogo, schema e interface operacional
 
 ## Nota Final
 

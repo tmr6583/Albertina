@@ -27,10 +27,10 @@ backend/
 - Executa paginação automática com `limit` e `offset` quando suportado.
 - Trata timeout, retry exponencial e headers `X-RateLimit-*`.
 - Persiste payloads em `olist_raw.api_payloads` com `ON CONFLICT`.
-- Mantém controle de execução em `olist_admin.sync_runs`, `olist_admin.sync_watermarks` e `olist_admin.sync_run_logs`.
+- Mantém controle de execução em `olist_admin.sync_runs`, `olist_admin.sync_watermarks`, `olist_admin.sync_run_logs` e `olist_admin.execution_control`.
 - Usa sincronização incremental quando a documentação confirma filtros como `dataAtualizacao`, `dataAlteracao` ou janelas por emissão.
 - Expõe status, disparo e parada segura pelo menu `Extração` no frontend Albertina.
-- Garante apenas uma execução concorrente por vez com trava global no PostgreSQL.
+- Garante apenas uma execução concorrente por vez com trava global no PostgreSQL, lease persistida e heartbeat.
 
 ## Pré-Requisitos
 
@@ -64,7 +64,7 @@ Preencha ao menos:
 2. Inicie o frontend Albertina.
 3. Conecte a aplicação com a Olist na tela `Conexões`.
 4. Acesse o menu `Extração`.
-5. Clique em `Iniciar extração`.
+5. Escolha `Incremental` ou `Conciliação`.
 6. Durante a execução, acompanhe a entidade atual, o progresso por entidade, velocidade e ETA locais, além do card executivo de logs.
 7. Use `Parar extração` para solicitar encerramento seguro.
 8. No quadro `Histórico`, clique em uma execução concluída para baixar o log completo em arquivo `.txt`.
@@ -96,3 +96,4 @@ python -m olist_extraction.cli --user-id <USER_ID> --actor-email <EMAIL>
 - A cobertura foi organizada a partir dos endpoints públicos `GET` documentados.
 - Quando a API não documenta watermark incremental para determinada entidade, a rotina faz sincronização full dessa entidade.
 - A entidade `contacts` usa paginação mais curta para reduzir o tempo entre solicitar `Parar` e a interrupção efetiva.
+- Execuções longas rodam em worker dedicado para evitar perda de processamento por reciclagem do servidor web.

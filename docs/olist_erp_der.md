@@ -1,13 +1,13 @@
 # Olist ERP DER
 
-DER principal do modelo relacional proposto para o projeto `Albertina`, organizado por dominios e com foco em rastreabilidade de integracao, normalizacao operacional e suporte analitico.
+DER lógico e operacional do modelo relacional do projeto `Albertina`, organizado por domínios e com foco em rastreabilidade de integração, normalização operacional e suporte analítico.
 
 ## Legenda
 
-- `tenant_id`: chave de segregacao multi-tenant
+- `tenant_id`: chave de segregação multi-tenant
 - `olist_*_id`: chave natural externa da Olist
 - `source_payload`: payload bruto ou parcial para rastreabilidade
-- `raw_attributes`: atributos flexiveis ainda nao totalmente normalizados
+- `raw_attributes`: atributos flexiveis ainda não totalmente normalizados
 
 ## Mermaid ER Diagram
 
@@ -638,8 +638,9 @@ erDiagram
     SERVICE_ORDERS ||--o{ SERVICE_ORDER_MARKERS : flags
 ```
 
-## Observacoes
+## Observações
 
-- O diagrama representa o `CORE` do modelo; a camada `RAW` fica concentrada em `olist_raw.api_payloads` e `olist_raw.webhook_events`.
-- Os relacionamentos financeiros com `orders` e `invoices` foram mantidos opcionais para suportar cargas parciais e sincronizacao assicrona.
-- Tabelas com `raw_attributes` ou `source_payload` preservam flexibilidade para campos nao completamente expandidos endpoint a endpoint.
+- O diagrama representa principalmente o `CORE` do modelo; a camada `RAW` permanece concentrada em `olist_raw.api_payloads` e `olist_raw.webhook_events`.
+- Parte do estado operacional atual da extração é complementada em runtime por colunas e controles de execução mantidos pelo bootstrap e pela camada de carga.
+- Os relacionamentos financeiros com `orders` e `invoices` permanecem opcionais para suportar cargas parciais e sincronização assíncrona.
+- Tabelas com `raw_attributes` ou `source_payload` preservam flexibilidade para campos ainda não completamente expandidos endpoint a endpoint.

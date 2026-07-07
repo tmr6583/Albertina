@@ -1,84 +1,78 @@
-# Especificacao Tecnica - Modos de Extracao Olist
+# Especificação técnica dos modos de extração Olist
 
 ## Objetivo
 
-O projeto passa a ter dois modos operacionais de sincronizacao:
+Esta especificação descreve os dois modos operacionais da extração Olist no projeto `Albertina`:
 
-1. `Incremental`
-2. `Conciliacao`
+1. `incremental`
+2. `reconciliation`
 
-Os dois modos compartilham o mesmo slot global de execucao. Nunca pode existir concorrencia entre execucoes, independentemente do tipo solicitado.
+Os dois modos compartilham o mesmo slot global de execução. Em qualquer cenário, só pode existir uma execução ativa por vez.
 
-## Definicao Operacional de "Absolutamente Sincronizado"
+## Definição operacional
 
-A execucao de conciliacao sera disparada apenas em janelas em que o ERP Olist nao estara sendo utilizado por operadores humanos nem por outras automacoes de negocio.
+### Incremental
 
-Com essa premissa, a conciliacao deve refletir integralmente na base analitica o estado do ERP no intervalo da execucao, inclusive:
+Modo de operação cotidiana, priorizando atualização rápida do ambiente com menor volume de leitura.
 
-- novos registros ja existentes na origem
-- registros alterados na origem
-- registros que deixaram de existir na origem
-- registros que mudaram de status operacional relevante na origem
+Comportamento esperado:
 
-## Modos de Execucao
+- usa `watermark` quando a API documenta filtros como `dataAtualizacao` ou `dataAlteracao`
+- usa janela por faixa de datas quando a entidade trabalha com emissão, vencimento ou período operacional
+- usa `cooldown` local quando a API não oferece filtro incremental documental
+- faz `upsert` na RAW e mantém o payload mais recente visível
+- não marca ausências como exclusão definitiva
 
-### 1. Incremental
+### Conciliação
 
-Modo operacional do dia a dia, acionado pelo botao `Incremental`.
+Modo de integridade, acionado para fechamento de sincronismo com a origem.
 
-Comportamento:
+Comportamento esperado:
 
-- usa watermark e filtros incrementais quando a API documenta `dataAtualizacao`, `dataAlteracao` ou janela equivalente
-- usa `cooldown` local para entidades de baixa variacao que nao possuem filtro incremental nativo documentado
-- continua fazendo `upsert` de novos e alterados na camada RAW
-- nao marca ausencias como deletadas
-- limpa marcacao de exclusao quando um registro reaparece
-- prioriza tempo de execucao
+- remove filtros incrementais sempre que a estratégia permitir leitura completa ou leitura ampla
+- marca cada payload visto na execução atual com `last_seen_at` e `last_seen_execution_id`
+- identifica ausências ao final da entidade e marca registros como deletados quando apropriado
+- reativa registros quando eles reaparecem em uma execução posterior
+- aquece `watermarks` e `cooldowns` ao final de uma conciliação bem-sucedida
 
-Observacao:
+## Regras de concorrência
 
-- para entidades sem filtro incremental documental, o sistema passa a usar uma estrategia incremental baseada em `cooldown`, evitando revarredura a cada clique
+Existe um único slot global de execução.
 
-### 2. Conciliacao
+Garantias:
 
-Modo de integridade, acionado pelo botao `Conciliação`.
+- `incremental` não concorre com `incremental`
+- `incremental` não concorre com `reconciliation`
+- `reconciliation` não concorre com `reconciliation`
 
-Comportamento:
+Implementação atual:
 
-- executa varredura completa da entidade ou a janela mais ampla suportada pela API
-- marca cada payload encontrado como `seen` na execucao atual
-- ao fim de cada entidade, marca como deletados os registros que existiam antes e nao foram vistos na conciliacao
-- restaura registros marcados como deletados quando eles reaparecem
-- e o modo responsavel por fechar o sincronismo com foco em ausencias e delecoes
+- trava local em memória para a instância ativa
+- `pg_advisory_lock` global no PostgreSQL
+- controle persistente em `olist_admin.execution_control`
+- lease com `heartbeat` para detectar execução órfã e recuperar liveness com segurança
 
-## Regras de Concorrencia
-
-Existe um unico slot global de execucao.
-
-Regras:
-
-- `incremental` nao concorre com `incremental`
-- `incremental` nao concorre com `conciliação`
-- `conciliação` nao concorre com `conciliação`
-
-Implementacao:
-
-- trava local em memoria para a instancia atual
-- `pg_advisory_lock` global no PostgreSQL para impedir concorrencia entre instancias
-- recuperacao de execucoes orfas continua habilitada
-
-## Modelo de Dados
+## Modelo de dados relacionado
 
 ### `olist_admin.sync_runs`
 
-Cada run de entidade passa a registrar:
+Cada execução por entidade registra, no mínimo:
 
 - `execution_type`: `incremental` ou `reconciliation`
-- `sync_mode`: `incremental`, `snapshot`, `reconciliation` ou outro modo tecnico derivado
+- `sync_mode`: `incremental`, `snapshot`, `reconciliation` ou outra estratégia técnica derivada
+- `status`, tempo de início, término e duração total
+
+### `olist_admin.execution_control`
+
+Tabela de coordenação global da execução:
+
+- garante exclusão mútua entre workers
+- registra `lease`, `heartbeat` e `worker_id`
+- evita concorrência entre UI, API e processo externo
 
 ### `olist_raw.api_payloads`
 
-Cada payload bruto passa a registrar:
+Cada payload bruto pode registrar:
 
 - `last_seen_at`
 - `last_seen_execution_id`
@@ -88,73 +82,66 @@ Cada payload bruto passa a registrar:
 
 Objetivo:
 
-- permitir conciliacao por presenca ou ausencia
-- permitir reativacao automatica quando um registro reaparece
-- deixar o RAW semanticamente alinhado ao estado atual da origem
+- permitir conciliação por presença ou ausência
+- reativar automaticamente registros reaparecidos
+- manter o RAW semanticamente alinhado ao estado mais recente da origem
 
-## Estrategia por Tipo
+## Estratégia por tipo
 
 ### Incremental
 
-- `watermark`: usa a data salva por entidade
-- `date_range`: usa a janela incremental atual
-- `cooldown`: reaproveita a ultima sincronizacao recente e so reconsulta a entidade quando a janela local expira
+- `watermark`: usa a data persistida por entidade e por step aplicável
+- `date_range`: usa a janela incremental configurada
+- `cooldown`: reaproveita sincronização recente para evitar revarredura
 
-### Conciliacao
+### Conciliação
 
-- `watermark`: remove o filtro para executar leitura completa
-- `date_range`: usa janela ampla de seguranca para cobrir historico necessario
-- sem suporte incremental documental: executa leitura completa da entidade
+- remove filtros incrementais para leitura completa, quando suportado
+- usa janelas amplas quando a API exige faixa temporal
+- executa leitura completa da entidade quando não há suporte incremental documental
 
-## Algoritmo de Conciliacao
+## Algoritmo resumido da conciliação
 
 Para cada entidade:
 
-1. iniciar o `sync_run` com `execution_type = reconciliation`
-2. extrair e persistir todos os registros visiveis da entidade
-3. marcar cada registro persistido com:
-   - `last_seen_execution_id = execution_id`
-   - `last_seen_at = now()`
-   - `is_deleted = false`
-   - `deleted_at = null`
-4. ao terminar a entidade com sucesso, marcar como deletados os registros da mesma entidade que nao foram vistos nessa execucao
-5. registrar no log quantos registros foram conciliados como ausentes/deletados
+1. inicia `sync_run` com `execution_type = reconciliation`
+2. extrai e persiste todos os registros visíveis da entidade
+3. marca registros vistos com `last_seen_execution_id`, `last_seen_at` e `is_deleted = false`
+4. ao concluir a entidade com sucesso, marca como ausentes os registros não vistos na execução
+5. registra no log os totais conciliados, excluídos e reativados
 
-## Logs e Fechamento
+## Logs e fechamento
 
-O log exportado e o resumo visual da execucao devem mostrar:
+O log exportado e o resumo visual devem mostrar:
 
-- `Inicio`
-- `Termino`
+- `Início`
+- `Término`
 - `Tempo total`
-
-O `Tempo total` deve ser exibido imediatamente abaixo das datas.
 
 Formato:
 
 - datas em `DD/MM/YYYY HH:MM:SS`
-- duracao em formato humano, por exemplo `15h 02m 11s`
+- duração em formato humano, por exemplo `15h 02m 11s`
 
-## UX da Tela de Extracao
+## UX da tela de extração
 
-A tela deve expor:
+A interface deve expor:
 
-- botao `Incremental`
-- botao `Conciliação`
-- botao `Parar extração` apenas quando houver execucao em andamento
+- botão `Incremental`
+- botão `Conciliação`
+- botão `Parar extração` apenas durante execução ativa
 
-O estado da execucao deve deixar claro:
+O estado da execução deve deixar claro:
 
-- tipo da execucao ativa
+- tipo da execução ativa
 - status atual
-- duracao
-- previsao quando aplicavel
+- duração
+- previsão, quando aplicável
 
-## Garantias Funcionais
+## Garantias funcionais
 
-- nenhuma dupla execucao concorrente
-- `Incremental` atualiza novos e alterados
-- `Conciliação` reconcilia ausencias e delecoes
+- nenhuma execução concorrente entre modos diferentes
+- `Incremental` atualiza novos e alterados com menor custo operacional
+- `Conciliação` reconcilia ausências e deleções quando a estratégia da entidade permite
 - reaparecimento limpa `is_deleted`
-- duracao da execucao aparece no resumo e no log exportado
-
+- duração da execução aparece no resumo e no log exportado

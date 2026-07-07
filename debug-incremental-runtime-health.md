@@ -1,6 +1,6 @@
-# Debug Session: incremental-runtime-health
+# Registro de debug: incremental-runtime-health
 
-- Status: OPEN
+- Status: REGISTRO HISTÓRICO
 - Started At: 01/07/2026 00:00:00
 - Scope: verificar se a execução incremental em andamento está saudável e, se houver falhas, coletar evidências e corrigir para próximas execuções.
 
