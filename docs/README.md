@@ -14,6 +14,7 @@ Objetivo:
 
 - [project_memory_knowledge.md](file:///c:/GitHubLocal/Albertina/docs/project_memory_knowledge.md): memória consolidada do projeto, restrições, convenções, decisões recentes e contexto operacional
 - [memory_snapshot_2026-07-07.md](file:///c:/GitHubLocal/Albertina/docs/memory_snapshot_2026-07-07.md): snapshot literal das memórias consolidadas na data da atualização
+- [chat_memory_knowledge_skills_2026-07-07.md](file:///c:/GitHubLocal/Albertina/docs/chat_memory_knowledge_skills_2026-07-07.md): consolidado desta sessão com memória, decisões, implementações, problemas resolvidos, validações e skills usadas
 
 ### Guias principais
 

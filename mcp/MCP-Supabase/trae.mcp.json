@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "MCP-Supabase": {
+      "command": "python",
+      "args": [
+        "c:/GitHubLocal/Albertina/mcp/MCP-Supabase/server.py"
+      ],
+      "cwd": "c:/GitHubLocal/Albertina"
+    }
+  }
+}

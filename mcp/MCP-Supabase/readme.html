@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP-Supabase</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #111; background: #fff; }
+    h1, h2 { margin: 0 0 12px; }
+    h2 { margin-top: 20px; }
+    .box { border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; margin: 10px 0; }
+    code, pre { font-family: Consolas, monospace; font-size: 13px; }
+    pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow: auto; }
+    ul { margin: 8px 0 8px 18px; }
+  </style>
+</head>
+<body>
+  <h1>MCP-Supabase</h1>
+  <div class="box">
+    MCP local em Python para o Supabase/PostgreSQL da Albertina. Foi desenhado para gastar poucos tokens, devolver JSON compacto e permitir acesso completo ao banco.
+  </div>
+
+  <h2>Ferramentas</h2>
+  <div class="box">
+    <ul>
+      <li><code>ping</code>: testa a conexao.</li>
+      <li><code>ls</code>: lista objetos do banco.</li>
+      <li><code>cols</code>: lista colunas.</li>
+      <li><code>sql</code>: executa SQL completo.</li>
+    </ul>
+  </div>
+
+  <h2>Instalacao</h2>
+  <pre>pip install -r c:\GitHubLocal\Albertina\mcp\MCP-Supabase\requirements.txt</pre>
+
+  <h2>Execucao</h2>
+  <pre>python c:\GitHubLocal\Albertina\mcp\MCP-Supabase\server.py</pre>
+
+  <h2>Arquivos</h2>
+  <div class="box">
+    <ul>
+      <li><code>server.py</code>: servidor MCP.</li>
+      <li><code>.env</code>: configuracao local.</li>
+      <li><code>portable.mcp.json</code>: configuracao portavel para outras IAs.</li>
+      <li><code>trae.mcp.json</code>: configuracao pronta para Trae.</li>
+      <li><code>install-trae.ps1</code>: script para registrar no Trae.</li>
+    </ul>
+  </div>
+
+  <h2>Trae</h2>
+  <pre>powershell -ExecutionPolicy Bypass -File c:\GitHubLocal\Albertina\mcp\MCP-Supabase\install-trae.ps1</pre>
+
+  <h2>Arquivo real do Trae</h2>
+  <pre>c:\Users\tmrossi\AppData\Roaming\Trae\User\mcp.json</pre>
+</body>
+</html>

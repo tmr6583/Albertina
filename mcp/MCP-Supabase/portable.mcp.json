@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "MCP-Supabase": {
+      "command": "python",
+      "args": [
+        "<PROJECT_ROOT>/mcp/MCP-Supabase/server.py"
+      ],
+      "cwd": "<PROJECT_ROOT>",
+      "env": {
+        "SUPABASE_HOST": "db.<project-ref>.supabase.co",
+        "SUPABASE_PORT": "5432",
+        "SUPABASE_DATABASE": "postgres",
+        "SUPABASE_USER": "postgres",
+        "SUPABASE_PASSWORD": "<project-password>",
+        "SUPABASE_SSLMODE": "verify-full",
+        "SUPABASE_SSLROOTCERT": "<PROJECT_ROOT>/files/Certificado_Supabase_Albertina.crt",
+        "SUPABASE_CONNECT_TIMEOUT": "15"
+      }
+    }
+  }
+}
